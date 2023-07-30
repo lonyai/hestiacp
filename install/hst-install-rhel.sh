@@ -62,7 +62,7 @@ help() {
   -Z, --sieve             Install Sieve         [yes|no]  default: no
   -c, --clamav            Install ClamAV        [yes|no]  default: yes
   -t, --spamassassin      Install SpamAssassin  [yes|no]  default: yes
-  -i, --iptables          Install Iptables      [yes|no]  default: yes
+  -i, --iptables          Install Iptables      [yes|no]  default: no
   -b, --fail2ban          Install Fail2ban      [yes|no]  default: yes
   -q, --quota             Filesystem Quota      [yes|no]  default: no
   -d, --api               Activate API          [yes|no]  default: yes
@@ -288,7 +288,7 @@ else
 	set_default_value 'clamd' 'yes'
 	set_default_value 'spamd' 'yes'
 fi
-set_default_value 'iptables' 'yes'
+set_default_value 'iptables' 'no'
 set_default_value 'fail2ban' 'yes'
 set_default_value 'quota' 'no'
 set_default_value 'interactive' 'yes'
@@ -308,9 +308,9 @@ fi
 if [ "$dovecot" = 'no' ]; then
 	sieve='no'
 fi
-if [ "$iptables" = 'no' ]; then
-	fail2ban='no'
-fi
+#if [ "$iptables" = 'no' ]; then
+#	fail2ban='no'
+#fi
 if [ "$apache" = 'no' ]; then
 	phpfpm='yes'
 fi
@@ -504,7 +504,7 @@ fi
 if [ "$iptables" = 'yes' ]; then
 	echo -n '   - Firewall (iptables)'
 fi
-if [ "$iptables" = 'yes' ] && [ "$fail2ban" = 'yes' ]; then
+if [ "$fail2ban" = 'yes' ]; then
 	echo -n ' + Fail2Ban Access Monitor'
 fi
 echo -e "\n"
@@ -676,8 +676,7 @@ fi
 # Installing PostgreSQL repo
 if [ "$postgresql" = 'yes' ]; then
 	echo "[ * ] PostgreSQL"
-	echo "deb [arch=$ARCH signed-by=/usr/share/keyrings/postgresql-keyring.gpg] https://apt.postgresql.org/pub/repos/apt/ $codename-pgdg main" > $apt/postgresql.list
-	curl -s https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | tee /usr/share/keyrings/postgresql-keyring.gpg > /dev/null 2>&1
+	yum -y module enable postgresql
 fi
 
 # Echo for a new line
@@ -685,23 +684,7 @@ echo
 
 # Updating system
 echo -ne "Updating currently installed packages, please wait... "
-apt-get -qq update
-apt-get -y upgrade >> $LOG &
-BACK_PID=$!
-
-# Check if package installation is done, print a spinner
-spin_i=1
-while kill -0 $BACK_PID > /dev/null 2>&1; do
-	printf "\b${spinner:spin_i++%${#spinner}:1}"
-	sleep 0.5
-done
-
-# Do a blank echo to get the \n back
-echo
-
-# Check Installation result
-wait $BACK_PID
-check_result $? 'apt-get upgrade failed'
+yum -y upgrade | tee -a $LOG
 
 #----------------------------------------------------------#
 #                         Backup                           #
@@ -710,8 +693,7 @@ check_result $? 'apt-get upgrade failed'
 # Creating backup directory tree
 mkdir -p $hst_backups
 cd $hst_backups
-mkdir nginx apache2 php vsftpd proftpd bind exim4 dovecot clamd
-mkdir spamassassin mysql postgresql openssl hestia
+mkdir nginx httpd php vsftpd proftpd bind exim dovecot clamd spamassassin mysql postgresql openssl hestia
 
 # Backup OpenSSL configuration
 cp /etc/ssl/openssl.cnf $hst_backups/openssl > /dev/null 2>&1
@@ -721,17 +703,21 @@ systemctl stop nginx > /dev/null 2>&1
 cp -r /etc/nginx/* $hst_backups/nginx > /dev/null 2>&1
 
 # Backup Apache configuration
-systemctl stop apache2 > /dev/null 2>&1
-cp -r /etc/apache2/* $hst_backups/apache2 > /dev/null 2>&1
-rm -f /etc/apache2/conf.d/* > /dev/null 2>&1
+systemctl stop httpd > /dev/null 2>&1
+cp -r /etc/httpd/ $hst_backups/httpd > /dev/null 2>&1
+rm -rf /etc/httpd/conf.d/* > /dev/null 2>&1
 
 # Backup PHP-FPM configuration
 systemctl stop php*-fpm > /dev/null 2>&1
-cp -r /etc/php/* $hst_backups/php > /dev/null 2>&1
+cp -r /etc/php* $hst_backups/php > /dev/null 2>&1
+mkdir -p $hst_backups/php/remi
+cp -r /etc/opt/remi/php* $hst_backups/php/remi/ > /dev/null 2>&1
 
 # Backup Bind configuration
-systemctl stop bind9 > /dev/null 2>&1
-cp -r /etc/bind/* $hst_backups/bind > /dev/null 2>&1
+systemctl stop named :q
+sys> /dev/null 2>&1
+mkdir $hst_backups/bind
+cp -r /etc/named* $hst_backups/bind/ > /dev/null 2>&1
 
 # Backup Vsftpd configuration
 systemctl stop vsftpd > /dev/null 2>&1
@@ -742,8 +728,8 @@ systemctl stop proftpd > /dev/null 2>&1
 cp /etc/proftpd/* $hst_backups/proftpd > /dev/null 2>&1
 
 # Backup Exim configuration
-systemctl stop exim4 > /dev/null 2>&1
-cp -r /etc/exim4/* $hst_backups/exim4 > /dev/null 2>&1
+systemctl stop exim > /dev/null 2>&1
+cp -r /etc/exim/* $hst_backups/exim4 > /dev/null 2>&1
 
 # Backup ClamAV configuration
 systemctl stop clamav-daemon > /dev/null 2>&1
@@ -765,12 +751,6 @@ mv /var/lib/mysql $hst_backups/mysql/mysql_datadir > /dev/null 2>&1
 cp -r /etc/mysql/* $hst_backups/mysql > /dev/null 2>&1
 mv -f /root/.my.cnf $hst_backups/mysql > /dev/null 2>&1
 
-# Backup Hestia
-systemctl stop hestia > /dev/null 2>&1
-cp -r $HESTIA/* $hst_backups/hestia > /dev/null 2>&1
-apt-get -y purge hestia hestia-nginx hestia-php > /dev/null 2>&1
-rm -rf $HESTIA > /dev/null 2>&1
-
 #----------------------------------------------------------#
 #                     Package Includes                     #
 #----------------------------------------------------------#
@@ -791,80 +771,52 @@ fi
 # Excluding packages
 software=$(echo "$software" | sed -e "s/apache2.2-common//")
 
-if [ "$apache" = 'no' ]; then
-	software=$(echo "$software" | sed -e "s/apache2 //")
-	software=$(echo "$software" | sed -e "s/apache2-bin//")
-	software=$(echo "$software" | sed -e "s/apache2-utils//")
-	software=$(echo "$software" | sed -e "s/apache2-suexec-custom//")
-	software=$(echo "$software" | sed -e "s/apache2.2-common//")
-	software=$(echo "$software" | sed -e "s/libapache2-mod-rpaf//")
-	software=$(echo "$software" | sed -e "s/libapache2-mod-fcgid//")
-	software=$(echo "$software" | sed -e "s/libapache2-mod-php$fpm_v//")
+if [ "$apache" = 'yes' ]; then
+	software="$software httpd"
 fi
-if [ "$vsftpd" = 'no' ]; then
-	software=$(echo "$software" | sed -e "s/vsftpd//")
+if [ "$vsftpd" = 'yes' ]; then
+	software="$software vsftpd"
 fi
-if [ "$proftpd" = 'no' ]; then
-	software=$(echo "$software" | sed -e "s/proftpd-basic//")
-	software=$(echo "$software" | sed -e "s/proftpd-mod-vroot//")
+if [ "$proftpd" = 'yes' ]; then
+	software="$software proftpd"
 fi
-if [ "$named" = 'no' ]; then
-	software=$(echo "$software" | sed -e "s/bind9//")
+if [ "$named" = 'yes' ]; then
+	software="$software  bind"
 fi
-if [ "$exim" = 'no' ]; then
-	software=$(echo "$software" | sed -e "s/exim4 //")
-	software=$(echo "$software" | sed -e "s/exim4-daemon-heavy//")
-	software=$(echo "$software" | sed -e "s/dovecot-imapd//")
-	software=$(echo "$software" | sed -e "s/dovecot-pop3d//")
-	software=$(echo "$software" | sed -e "s/clamav-daemon//")
-	software=$(echo "$software" | sed -e "s/spamassassin//")
-	software=$(echo "$software" | sed -e "s/dovecot-sieve//")
-	software=$(echo "$software" | sed -e "s/dovecot-managesieved//")
+if [ "$exim" = 'yes' ]; then
+	software="$software exim"
 fi
-if [ "$clamd" = 'no' ]; then
-	software=$(echo "$software" | sed -e "s/clamav-daemon//")
+if [ "$clamd" = 'yes' ]; then
+	software="$software clamav-daemon"
 fi
-if [ "$spamd" = 'no' ]; then
-	software=$(echo "$software" | sed -e "s/spamassassin//")
+if [ "$spamd" = 'yes' ]; then
+	software="$software spamassassin"
 fi
-if [ "$dovecot" = 'no' ]; then
-	software=$(echo "$software" | sed -e "s/dovecot-imapd//")
-	software=$(echo "$software" | sed -e "s/dovecot-pop3d//")
+if [ "$dovecot" = 'yes' ]; then
+	software="$software dovecot"
 fi
-if [ "$sieve" = 'no' ]; then
-	software=$(echo "$software" | sed -e "s/dovecot-sieve//")
-	software=$(echo "$software" | sed -e "s/dovecot-managesieved//")
+if [ "$sieve" = 'yes' ]; then
+	software="$software dovecot-pigeonhole"
 fi
-if [ "$mysql" = 'no' ]; then
-	software=$(echo "$software" | sed -e "s/mariadb-server//")
-	software=$(echo "$software" | sed -e "s/mariadb-client//")
-	software=$(echo "$software" | sed -e "s/mariadb-common//")
+if [ "$mysql" = 'yes' ]; then
+	software="$software mariadb-server mariadb-client mysql"
 fi
-if [ "$mysql8" = 'no' ]; then
-	software=$(echo "$software" | sed -e "s/mysql-server//")
-	software=$(echo "$software" | sed -e "s/mysql-client//")
-	software=$(echo "$software" | sed -e "s/mysql-common//")
+if [ "$mysql8" = 'yes' ]; then
+	software="$software mysql-server mysql-client"
 fi
-if [ "$mysql" = 'no' ] && [ "$mysql8" = 'no' ]; then
-	software=$(echo "$software" | sed -e "s/php$fpm_v-mysql//")
+if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
+	software=$(echo "$software php$fpm_v-mysql"
 	if [ "$multiphp" = 'yes' ]; then
 		for v in "${multiphp_v[@]}"; do
-			software=$(echo "$software" | sed -e "s/php$v-mysql//")
-			software=$(echo "$software" | sed -e "s/php$v-bz2//")
+			software="$software php$v-mysql php$v-bz2"
 		done
 	fi
 fi
-if [ "$postgresql" = 'no' ]; then
-	software=$(echo "$software" | sed -e "s/postgresql-contrib//")
-	software=$(echo "$software" | sed -e "s/postgresql//")
-	software=$(echo "$software" | sed -e "s/php$fpm_v-pgsql//")
+if [ "$postgresql" = 'yes' ]; then
+	software="$software postgresql php$fpm_v-pgsql"
 fi
-if [ "$fail2ban" = 'no' ]; then
-	software=$(echo "$software" | sed -e "s/fail2ban//")
-fi
-if [ "$iptables" = 'no' ]; then
-	software=$(echo "$software" | sed -e "s/ipset//")
-	software=$(echo "$software" | sed -e "s/fail2ban//")
+if [ "$fail2ban" = 'yes' ]; then
+	software="$software fail2ban fail2ban-firewalld")
 fi
 if [ "$phpfpm" = 'yes' ]; then
 	software=$(echo "$software" | sed -e "s/php$fpm_v-cgi//")
@@ -1006,46 +958,6 @@ sed -i 's/#NTP=/NTP=pool.ntp.org/' /etc/systemd/timesyncd.conf
 systemctl enable systemd-timesyncd
 systemctl start systemd-timesyncd
 
-# Check iptables paths and add symlinks when necessary
-if [ ! -e "/sbin/iptables" ]; then
-	if which iptables > /dev/null; then
-		ln -s "$(which iptables)" /sbin/iptables
-	elif [ -e "/usr/sbin/iptables" ]; then
-		ln -s /usr/sbin/iptables /sbin/iptables
-	elif whereis -B /bin /sbin /usr/bin /usr/sbin -f -b iptables; then
-		autoiptables=$(whereis -B /bin /sbin /usr/bin /usr/sbin -f -b iptables | cut -d '' -f 2)
-		if [ -x "$autoiptables" ]; then
-			ln -s "$autoiptables" /sbin/iptables
-		fi
-	fi
-fi
-
-if [ ! -e "/sbin/iptables-save" ]; then
-	if which iptables-save > /dev/null; then
-		ln -s "$(which iptables-save)" /sbin/iptables-save
-	elif [ -e "/usr/sbin/iptables-save" ]; then
-		ln -s /usr/sbin/iptables-save /sbin/iptables-save
-	elif whereis -B /bin /sbin /usr/bin /usr/sbin -f -b iptables-save; then
-		autoiptables_save=$(whereis -B /bin /sbin /usr/bin /usr/sbin -f -b iptables-save | cut -d '' -f 2)
-		if [ -x "$autoiptables_save" ]; then
-			ln -s "$autoiptables_save" /sbin/iptables-save
-		fi
-	fi
-fi
-
-if [ ! -e "/sbin/iptables-restore" ]; then
-	if which iptables-restore > /dev/null; then
-		ln -s "$(which iptables-restore)" /sbin/iptables-restore
-	elif [ -e "/usr/sbin/iptables-restore" ]; then
-		ln -s /usr/sbin/iptables-restore /sbin/iptables-restore
-	elif whereis -B /bin /sbin /usr/bin /usr/sbin -f -b iptables-restore; then
-		autoiptables_restore=$(whereis -B /bin /sbin /usr/bin /usr/sbin -f -b iptables-restore | cut -d '' -f 2)
-		if [ -x "$autoiptables_restore" ]; then
-			ln -s "$autoiptables_restore" /sbin/iptables-restore
-		fi
-	fi
-fi
-
 # Restrict access to /proc fs
 # - Prevent unpriv users from seeing each other running processes
 mount -o remount,defaults,hidepid=2 /proc > /dev/null 2>&1
@@ -1181,10 +1093,7 @@ fi
 write_config_value "CRON_SYSTEM" "cron"
 
 # Firewall stack
-if [ "$iptables" = 'yes' ]; then
-	write_config_value "FIREWALL_SYSTEM" "iptables"
-fi
-if [ "$iptables" = 'yes' ] && [ "$fail2ban" = 'yes' ]; then
+if [ "$fail2ban" = 'yes' ]; then
 	write_config_value "FIREWALL_EXTENSION" "fail2ban"
 fi
 
