@@ -658,17 +658,18 @@ yum -y install https://rpms.remirepo.net/enterprise/remi-release-$release.rpm > 
 # Installing MariaDB repo
 if [ "$mysql" = 'yes' ]; then
 	echo "[ * ] MariaDB"
+	if [ $version = "rhel" ] ; then
+		str=rhel
+	else
+		str=centos
+	fi
 	cat >/etc/yum.repos.d/MariaDB.repo <<EOF
-# MariaDB 11.0 CentOS repository list - created 2023-07-30 16:30 UTC
-# https://mariadb.org/download/
 [mariadb]
-name = MariaDB
-# rpm.mariadb.org is a dynamic mirror if your preferred mirror goes offline. See https://mariadb.org/mirrorbits/ for details.
-# baseurl = https://rpm.mariadb.org/11.0/centos/$releasever/$basearch
-baseurl = https://mirror.terrahost.no/mariadb/yum/11.0/centos/$releasever/$basearch
-# gpgkey = https://rpm.mariadb.org/RPM-GPG-KEY-MariaDB
-gpgkey = https://mirror.terrahost.no/mariadb/yum/RPM-GPG-KEY-MariaDB
-gpgcheck = 1
+name=MariaDB
+baseurl=https://rpm.mariadb.org/$mariadb_v/$str/\$releasever/\$basearch
+gpgkey=https://rpm.mariadb.org/RPM-GPG-KEY-MariaDB
+gpgcheck=1
+enabled=1
 EOF
 fi
 
