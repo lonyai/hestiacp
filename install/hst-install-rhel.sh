@@ -16,7 +16,7 @@
 export PATH=$PATH:/sbin
 source /etc/os-release
 RHOST='rpm.hestiacp.com'
-VERSION='rhel'
+VERSION=$ID
 HESTIA='/usr/local/hestia'
 LOG="/root/hst_install_backups/hst_install-$(date +%d%m%Y%H%M).log"
 memory=$(grep 'MemTotal' /proc/meminfo | tr ' ' '\n' | grep [0-9])
@@ -38,7 +38,7 @@ fpm_v="8.1"
 mariadb_v="10.11"
 
 # Defining software pack for all distros
-software="acl httpd awstats bc bind ca-certificates clamav-daemon curl dovecot dovecot-pigeonhole exim expect fail2ban fail2ban-firewalld flex ftp git gnupg2 idn2 imagemagick ipset jq zip mariadb mariadb-server mc nginx openssl openssh-server
+software="acl httpd awstats bc bind ca-certificates clamav-daemon curl dovecot dovecot-pigeonhole exim expect fail2ban fail2ban-firewalld flex ftp git gnupg2 idn2 imagemagick ipset jq zip mariadb-client mariadb-server mc nginx openssl openssh-server
   php$fpm_v php$fpm_v-apcu php$fpm_v-bz2 php$fpm_v-cgi php$fpm_v-cli php$fpm_v-common php$fpm_v-curl php$fpm_v-gd
   php$fpm_v-imagick php$fpm_v-imap php$fpm_v-intl php$fpm_v-ldap php$fpm_v-mbstring php$fpm_v-mysql php$fpm_v-opcache
   php$fpm_v-pgsql php$fpm_v-pspell php$fpm_v-readline php$fpm_v-xml php$fpm_v-zip postgresql postgresql-server proftpd pwgen quota rrdtool rsyslog setpriv spamassassin sudo sysstat unzip vim vsftpd wget whois zip"
@@ -622,15 +622,20 @@ echo "Adding required repositories to proceed with installation:"
 echo
 
 # Installing EPEL repo
-yum config-manager --set-enabled crb
-yum install epel-release epel-next-release
+if [ $version = "rhel" ] ; then
+	subscription-manager repos --enable codeready-builder-for-rhel-9-$(arch)-rpms
+	dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+else
+	yum config-manager --set-enabled crb
+	yum install epel-release epel-next-release
+fi
 
 # Installing Nginx repo
 echo "[ * ] NGINX"
 cat >/etc/yum.repos.d/nginx.repo <<EOF
 [nginx-stable]
 name=nginx stable repo
-baseurl=http://nginx.org/packages/centos/$releasever/$basearch/
+baseurl=http://nginx.org/packages/centos/\$releasever/\$basearch/
 gpgcheck=1
 enabled=1
 gpgkey=https://nginx.org/keys/nginx_signing.key
@@ -638,7 +643,7 @@ module_hotfixes=true
 
 [nginx-mainline]
 name=nginx mainline repo
-baseurl=http://nginx.org/packages/mainline/centos/$releasever/$basearch/
+baseurl=http://nginx.org/packages/mainline/centos/\$releasever/\$basearch/
 gpgcheck=1
 enabled=0
 gpgkey=https://nginx.org/keys/nginx_signing.key
@@ -648,25 +653,24 @@ EOF
 # Installing sury PHP repo
 # add-apt-repository does not yet support signed-by see: https://bugs.launchpad.net/ubuntu/+source/software-properties/+bug/1862764
 echo "[ * ] PHP"
-yum -y install https://rpms.remirepo.net/enterprise/remi-release-9.rpm > /dev/null 2>&1
-
-# Installing sury Apache2 repo
-if [ "$apache" = 'yes' ]; then
-	echo "[ * ] Apache2"
-	echo "deb http://ppa.launchpad.net/ondrej/apache2/ubuntu $codename main" > $apt/apache2.list
-fi
+yum -y install https://rpms.remirepo.net/enterprise/remi-release-$release.rpm > /dev/null 2>&1
 
 # Installing MariaDB repo
 if [ "$mysql" = 'yes' ]; then
 	echo "[ * ] MariaDB"
-	echo "deb [arch=$ARCH signed-by=/usr/share/keyrings/mariadb-keyring.gpg] https://dlm.mariadb.com/repo/mariadb-server/$mariadb_v/repo/$VERSION $codename main" > $apt/mariadb.list
-	curl -s https://mariadb.org/mariadb_release_signing_key.asc | gpg --dearmor | tee /usr/share/keyrings/mariadb-keyring.gpg > /dev/null 2>&1
+	cat >/etc/yum.repos.d/MariaDB.repo <<EOF
+# MariaDB 11.0 CentOS repository list - created 2023-07-30 16:30 UTC
+# https://mariadb.org/download/
+[mariadb]
+name = MariaDB
+# rpm.mariadb.org is a dynamic mirror if your preferred mirror goes offline. See https://mariadb.org/mirrorbits/ for details.
+# baseurl = https://rpm.mariadb.org/11.0/centos/$releasever/$basearch
+baseurl = https://mirror.terrahost.no/mariadb/yum/11.0/centos/$releasever/$basearch
+# gpgkey = https://rpm.mariadb.org/RPM-GPG-KEY-MariaDB
+gpgkey = https://mirror.terrahost.no/mariadb/yum/RPM-GPG-KEY-MariaDB
+gpgcheck = 1
+EOF
 fi
-
-# Installing HestiaCP repo
-echo "[ * ] Hestia Control Panel"
-echo "deb [arch=$ARCH signed-by=/usr/share/keyrings/hestia-keyring.gpg] https://$RHOST/ $codename main" > $apt/hestia.list
-gpg --no-default-keyring --keyring /usr/share/keyrings/hestia-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys A189E93654F0B0E5 > /dev/null 2>&1
 
 # Installing PostgreSQL repo
 if [ "$postgresql" = 'yes' ]; then
