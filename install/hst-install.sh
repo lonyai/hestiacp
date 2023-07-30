@@ -60,8 +60,11 @@ if [ -e "/etc/os-release" ] && [ ! -e "/etc/redhat-release" ]; then
 elif [ -e "/etc/os-release" ] && [ -e "/etc/redhat-release" ]; then
 	type=$(grep "^ID=" /etc/os-release | cut -f 2 -d '"')
 	if [ "$type" = "rhel" ]; then
-		release=$(cat /etc/redhat-release | cut -f 1 -d '.' | awk '{print $3}')
+		release=$(cat /etc/redhat-release | cut -f 1 -d '.' | sed 's/.* //')
 		VERSION='rhel'
+	if [ "$type" = "centos" ]; then
+		release=$(cat /etc/redhat-release | cut -f 1 -d '.' | sed 's/.* //')
+		VERSION='centos'
 	elif [ "$type" = "almalinux" ]; then
 		release=$(cat /etc/redhat-release | cut -f 1 -d '.' | awk '{print $3}')
 		VERSION='almalinux'
