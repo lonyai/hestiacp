@@ -43,7 +43,7 @@ software="acl httpd awstats bc bind ca-certificates clamav-daemon curl dovecot d
   php$fpm_v-imagick php$fpm_v-imap php$fpm_v-intl php$fpm_v-ldap php$fpm_v-mbstring php$fpm_v-mysql php$fpm_v-opcache
   php$fpm_v-pgsql php$fpm_v-pspell php$fpm_v-readline php$fpm_v-xml php$fpm_v-zip postgresql postgresql-server proftpd pwgen quota rrdtool rsyslog setpriv spamassassin sudo sysstat unzip vim vsftpd wget whois zip"
 
-installer_dependencies="ca-certificates curl gnupg2 openssl wget"
+installer_dependencies="ca-certificates curl gnupg2 openssl wget yum-utils"
 
 # Defining help function
 help() {
@@ -621,16 +621,34 @@ mkdir -p /root/.gnupg/ && chmod 700 /root/.gnupg/
 echo "Adding required repositories to proceed with installation:"
 echo
 
-# Installing Nginx repo
+# Installing EPEL repo
+yum config-manager --set-enabled crb
+yum install epel-release epel-next-release
 
+# Installing Nginx repo
 echo "[ * ] NGINX"
-echo "deb [arch=$ARCH signed-by=/usr/share/keyrings/nginx-keyring.gpg] https://nginx.org/packages/mainline/$VERSION/ $codename nginx" > $apt/nginx.list
-curl -s https://nginx.org/keys/nginx_signing.key | gpg --dearmor | tee /usr/share/keyrings/nginx-keyring.gpg > /dev/null 2>&1
+cat >/etc/yum.repos.d/nginx.repo <<EOF
+[nginx-stable]
+name=nginx stable repo
+baseurl=http://nginx.org/packages/centos/$releasever/$basearch/
+gpgcheck=1
+enabled=1
+gpgkey=https://nginx.org/keys/nginx_signing.key
+module_hotfixes=true
+
+[nginx-mainline]
+name=nginx mainline repo
+baseurl=http://nginx.org/packages/mainline/centos/$releasever/$basearch/
+gpgcheck=1
+enabled=0
+gpgkey=https://nginx.org/keys/nginx_signing.key
+module_hotfixes=true
+EOF
 
 # Installing sury PHP repo
 # add-apt-repository does not yet support signed-by see: https://bugs.launchpad.net/ubuntu/+source/software-properties/+bug/1862764
 echo "[ * ] PHP"
-LC_ALL=C.UTF-8 add-apt-repository -y ppa:ondrej/php > /dev/null 2>&1
+yum -y install https://rpms.remirepo.net/enterprise/remi-release-9.rpm > /dev/null 2>&1
 
 # Installing sury Apache2 repo
 if [ "$apache" = 'yes' ]; then
