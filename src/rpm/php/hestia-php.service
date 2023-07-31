@@ -4,13 +4,12 @@ Documentation=https://www.hestiacp.com
 PartOf=hestia.service
 
 [Service]
-Type=forking
+Type=notify
 PIDFile=/run/hestia-php.pid
-ExecStart=/usr/local/hestia/php/sbin/hestia-php --fpm-config /usr/local/hestia/php/etc/php-fpm.conf
-ExecReload=/bin/sh -c "/bin/kill -s HUP $(/bin/cat /run/hestia-php.pid)"
-ExecStop=/usr/bin/php -r '$pid=(int)file_get_contents("/run/hestia-php.pid");posix_kill($pid,SIGTERM);while(posix_kill($pid,0)){sleep(0);}'
-ExecStartPre=/bin/bash -c "/bin/systemctl set-environment HOSTNAME=$(/usr/bin/hostname)"
-Environment="HESTIA=/usr/local/hestia"
+EnvironmentFile=/etc/hestiacp/hestia.conf
+ExecStart=/usr/sbin/php-fpm --nodaemonize --fpm-config $HESTIA/nginx/php-hestia.conf
+ExecReload=/bin/kill -USR2 $MAINPID
+PrivateTmp=true
 
 [Install]
 WantedBy=hestia.service

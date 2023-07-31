@@ -33,8 +33,8 @@ VERBOSE='no'
 # Define software versions
 HESTIA_INSTALL_VER='1.8.3'
 # Dependencies
-multiphp_v=("5.6" "7.0" "7.1" "7.2" "7.3" "7.4" "8.0" "8.1" "8.2")
-fpm_v="8.1"
+multiphp_v=("56" "70" "71" "72" "73" "74" "80" "81" "82")
+fpm_v="81"
 mariadb_v="10.11"
 
 # Defining software pack for all distros
@@ -62,7 +62,7 @@ help() {
   -Z, --sieve             Install Sieve         [yes|no]  default: no
   -c, --clamav            Install ClamAV        [yes|no]  default: yes
   -t, --spamassassin      Install SpamAssassin  [yes|no]  default: yes
-  -i, --iptables          Install Iptables      [yes|no]  default: no
+  -i, --iptables          Install Iptables      [yes|no]  default: no (unused)
   -b, --fail2ban          Install Fail2ban      [yes|no]  default: yes
   -q, --quota             Filesystem Quota      [yes|no]  default: no
   -d, --api               Activate API          [yes|no]  default: yes
@@ -72,7 +72,8 @@ help() {
   -s, --hostname          Set hostname
   -e, --email             Set admin email
   -p, --password          Set admin password
-  -D, --with-debs         Path to Hestia debs
+  -D, --with-debs         Path to Hestia debs (unused)
+  -V, --from-vesta        Migrate from VestaCP
   -f, --force             Force installation
   -h, --help              Print this help
 
@@ -221,6 +222,7 @@ for arg; do
 		--password) args="${args}-p " ;;
 		--force) args="${args}-f " ;;
 		--with-debs) args="${args}-D " ;;
+		--from-vesta) args="${args}-V" ;;
 		--help) args="${args}-h " ;;
 		*)
 			[[ "${arg:0:1}" == "-" ]] || delim="\""
@@ -231,7 +233,7 @@ done
 eval set -- "$args"
 
 # Parsing arguments
-while getopts "a:w:v:j:k:m:M:g:d:x:z:Z:c:t:i:b:r:o:q:l:y:s:e:p:D:fh" Option; do
+while getopts "a:w:v:j:k:m:M:g:d:x:z:Z:c:t:i:b:r:o:q:l:y:s:e:p:D:V:fh" Option; do
 	case $Option in
 		a) apache=$OPTARG ;;      # Apache
 		w) phpfpm=$OPTARG ;;      # PHP-FPM
@@ -258,6 +260,7 @@ while getopts "a:w:v:j:k:m:M:g:d:x:z:Z:c:t:i:b:r:o:q:l:y:s:e:p:D:fh" Option; do
 		e) email=$OPTARG ;;       # Admin email
 		p) vpass=$OPTARG ;;       # Admin password
 		D) withdebs=$OPTARG ;;    # Hestia debs path
+		V) fromvesta=$OPTARG ;;   # Migrate from VestaCP
 		f) force='yes' ;;         # Force install
 		h) help ;;                # Help
 		*) help ;;                # Print help (default)
@@ -357,7 +360,13 @@ check_result $? "Package installation failed, check log file for more details."
 #check_result $? "Unable to connect to the Hestia APT repository"
 
 # Check installed packages
-conflicts=$(rpm -qa | grep -P "^(exim|mariadb-server|httpd|nginx|hestia|postfix|ufw)-\d")
+conflicts_pkg="mariadb-server|httpd|nginx|hestia|ufw"
+# Add mail servers to the list if exim will be installe
+if [ "$exim" = 'yes' ]; then
+        conflicts_pkg="$conflicts_pkg|postfix|exim"
+fi
+
+conflicts=$(rpm -qa | grep -P "^($conflicts_pkg)-\d" | sed "s/$/ /")
 if [ -n "$conflicts" ] && [ -z "$force" ]; then
 	echo '!!! !!! !!! !!! !!! !!! !!! !!! !!! !!! !!! !!! !!! !!! !!! !!! !!!'
 	echo
@@ -370,8 +379,7 @@ if [ -n "$conflicts" ] && [ -z "$force" ]; then
 	echo
 	read -p 'Would you like to remove the conflicting packages? [y/n] ' answer
 	if [ "$answer" = 'y' ] || [ "$answer" = 'Y' ]; then
-		apt-get -qq purge $conflicts -y
-		check_result $? 'apt-get remove failed'
+		yum -y remove $conflicts
 		unset $answer
 	else
 		check_result 1 "Hestia Control Panel should be installed on a clean server."
@@ -611,12 +619,6 @@ fi
 #                   Install repository                     #
 #----------------------------------------------------------#
 
-# Define apt conf location
-apt=/etc/apt/sources.list.d
-
-# Create new folder if not all-ready exists
-mkdir -p /root/.gnupg/ && chmod 700 /root/.gnupg/
-
 # Updating system
 echo "Adding required repositories to proceed with installation:"
 echo
@@ -651,7 +653,6 @@ module_hotfixes=true
 EOF
 
 # Installing sury PHP repo
-# add-apt-repository does not yet support signed-by see: https://bugs.launchpad.net/ubuntu/+source/software-properties/+bug/1862764
 echo "[ * ] PHP"
 yum -y install https://rpms.remirepo.net/enterprise/remi-release-$release.rpm > /dev/null 2>&1
 
@@ -823,11 +824,6 @@ if [ "$phpfpm" = 'yes' ]; then
 	software=$(echo "$software" | sed -e "s/libapache2-mod-ruid2//")
 	software=$(echo "$software" | sed -e "s/libapache2-mod-php$fpm_v//")
 fi
-if [ -d "$withdebs" ]; then
-	software=$(echo "$software" | sed -e "s/hestia-nginx//")
-	software=$(echo "$software" | sed -e "s/hestia-php//")
-	software=$(echo "$software" | sed -e "s/hestia=${HESTIA_INSTALL_VER}//")
-fi
 if [ "$release" = '20.04' ]; then
 	software=$(echo "$software" | sed -e "s/setpriv/util-linux/")
 	software=$(echo "$software" | sed -e "s/libzip4/libzip5/")
@@ -837,36 +833,20 @@ if [ "$release" = '22.04' ]; then
 fi
 
 #----------------------------------------------------------#
-#                 Disable Apparmor on LXC                  #
-#----------------------------------------------------------#
-
-if grep --quiet lxc /proc/1/environ; then
-	if [ -f /etc/init.d/apparmor ]; then
-		systemctl stop apparmor > /dev/null 2>&1
-		systemctl disable apparmor > /dev/null 2>&1
-	fi
-fi
-
-#----------------------------------------------------------#
 #                     Install packages                     #
 #----------------------------------------------------------#
 
 # Enable en_US.UTF-8
-sed -i "s/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g" /etc/locale.gen
-locale-gen > /dev/null 2>&1
-
-# Disabling daemon autostart on apt-get install
-echo -e '#!/bin/sh\nexit 101' > /usr/sbin/policy-rc.d
-chmod a+x /usr/sbin/policy-rc.d
+localectl set-locale en_US.UTF-8
 
 # Installing apt packages
 echo "The installer is now downloading and installing all required packages."
 echo -ne "NOTE: This process may take 10 to 15 minutes to complete, please wait... "
 echo
-apt-get -y install $software > $LOG
+yum -y install $software >> $LOG &
 BACK_PID=$!
 
-# Check if package installation is done, print a spinner
+## Check if package installation is done, print a spinner
 spin_i=1
 while kill -0 $BACK_PID > /dev/null 2>&1; do
 	printf "\b${spinner:spin_i++%${#spinner}:1}"
@@ -878,37 +858,37 @@ echo
 
 # Check Installation result
 wait $BACK_PID
-check_result $? "apt-get install failed"
+check_result $? "yum install failed"
 
 echo
 echo "========================================================================"
 echo
 
-# Install Hestia packages from local folder
-if [ -n "$withdebs" ] && [ -d "$withdebs" ]; then
-	echo "[ * ] Installing local package files..."
-	echo "    - hestia core package"
-	dpkg -i $withdebs/hestia_*.deb > /dev/null 2>&1
-
-	if [ -z $(ls $withdebs/hestia-php_*.deb 2> /dev/null) ]; then
-		echo "    - hestia-php backend package (from apt)"
-		apt-get -y install hestia-php > /dev/null 2>&1
-	else
-		echo "    - hestia-php backend package"
-		dpkg -i $withdebs/hestia-php_*.deb > /dev/null 2>&1
-	fi
-
-	if [ -z $(ls $withdebs/hestia-nginx_*.deb 2> /dev/null) ]; then
-		echo "    - hestia-nginx backend package (from apt)"
-		apt-get -y install hestia-nginx > /dev/null 2>&1
-	else
-		echo "    - hestia-nginx backend package"
-		dpkg -i $withdebs/hestia-nginx_*.deb > /dev/null 2>&1
-	fi
-fi
-
-# Restoring autostart policy
-rm -f /usr/sbin/policy-rc.d
+## Install Hestia packages from local folder
+#if [ -n "$withdebs" ] && [ -d "$withdebs" ]; then
+#	echo "[ * ] Installing local package files..."
+#	echo "    - hestia core package"
+#	dpkg -i $withdebs/hestia_*.deb > /dev/null 2>&1
+#
+#	if [ -z $(ls $withdebs/hestia-php_*.deb 2> /dev/null) ]; then
+#		echo "    - hestia-php backend package (from apt)"
+#		apt-get -y install hestia-php > /dev/null 2>&1
+#	else
+#		echo "    - hestia-php backend package"
+#		dpkg -i $withdebs/hestia-php_*.deb > /dev/null 2>&1
+#	fi
+#
+#	if [ -z $(ls $withdebs/hestia-nginx_*.deb 2> /dev/null) ]; then
+#		echo "    - hestia-nginx backend package (from apt)"
+#		apt-get -y install hestia-nginx > /dev/null 2>&1
+#	else
+#		echo "    - hestia-nginx backend package"
+#		dpkg -i $withdebs/hestia-nginx_*.deb > /dev/null 2>&1
+#	fi
+#fi
+mkdir -p $HESTIA/nginx
+cp -f $HESTIA_INSTALL_DIR/php-fpm/nginx-hestia.conf $HESTIA/nginx
+cp -f $HESTIA_INSTALL_DIR/nginx/php-hestia.conf $HESTIA/nginx
 
 #----------------------------------------------------------#
 #                     Configure system                     #
@@ -925,16 +905,6 @@ fi
 # Reduce SSH login grace time
 sed -i "s/[#]LoginGraceTime [[:digit:]]m/LoginGraceTime 1m/g" /etc/ssh/sshd_config
 
-# Disable SSH suffix broadcast
-if [ -z "$(grep "^DebianBanner no" /etc/ssh/sshd_config)" ]; then
-	sed -i '/^[#]Banner .*/a DebianBanner no' /etc/ssh/sshd_config
-	if [ -z "$(grep "^DebianBanner no" /etc/ssh/sshd_config)" ]; then
-		# If first attempt fails just add it
-		echo '' >> /etc/ssh/sshd_config
-		echo 'DebianBanner no' >> /etc/ssh/sshd_config
-	fi
-fi
-
 # Restart SSH daemon
 systemctl restart ssh
 
@@ -943,20 +913,13 @@ rm -f /etc/cron.d/awstats
 # Replace awstatst function
 cp -f $HESTIA_INSTALL_DIR/logrotate/httpd-prerotate/* /etc/logrotate.d/httpd-prerotate/
 
-# Set directory color
-if [ -z "$(grep 'LS_COLORS="$LS_COLORS:di=00;33"' /etc/profile)" ]; then
-	echo 'LS_COLORS="$LS_COLORS:di=00;33"' >> /etc/profile
-fi
-
 # Register /usr/sbin/nologin
 if [ -z "$(grep nologin /etc/shells)" ]; then
 	echo "/usr/sbin/nologin" >> /etc/shells
 fi
 
 # Configuring NTP
-sed -i 's/#NTP=/NTP=pool.ntp.org/' /etc/systemd/timesyncd.conf
-systemctl enable systemd-timesyncd
-systemctl start systemd-timesyncd
+timedatectl set-ntp 1
 
 # Restrict access to /proc fs
 # - Prevent unpriv users from seeing each other running processes
@@ -980,7 +943,7 @@ chmod 440 /etc/sudoers.d/admin
 # Add Hestia global config
 if [[ ! -e /etc/hestiacp/hestia.conf ]]; then
 	mkdir -p /etc/hestiacp
-	echo -e "# Do not edit this file, will get overwritten on next upgrade, use /etc/hestiacp/local.conf instead\n\nexport HESTIA='/usr/local/hestia'\n\n[[ -f /etc/hestiacp/local.conf ]] && source /etc/hestiacp/local.conf" > /etc/hestiacp/hestia.conf
+	echo -e "# Do not edit this file, will get overwritten on next upgrade, use /etc/hestiacp/local.conf instead\n\nexport HESTIA='$HESTIA'\n\n[[ -f /etc/hestiacp/local.conf ]] && source /etc/hestiacp/local.conf" > /etc/hestiacp/hestia.conf
 fi
 
 # Configuring system env
