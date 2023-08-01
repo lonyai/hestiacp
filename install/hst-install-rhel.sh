@@ -18,7 +18,7 @@ source /etc/os-release
 RHOST='rpm.hestiacp.com'
 VERSION=$ID
 HESTIA='/usr/local/hestia'
-LOG="/root/hst_install_backups/hst_install-$(date +%d%m%Y%H%M).log"
+LOG="| logger --tag hestia-install"
 memory=$(grep 'MemTotal' /proc/meminfo | tr ' ' '\n' | grep [0-9])
 hst_backups="/root/hst_install_backups/$(date +%d%m%Y%H%M)"
 spinner="/-\|"
@@ -38,10 +38,10 @@ fpm_v="81"
 mariadb_v="10.11"
 
 # Defining software pack for all distros
-software="acl httpd awstats bc bind ca-certificates clamav-daemon curl dovecot dovecot-pigeonhole exim expect fail2ban fail2ban-firewalld flex ftp git gnupg2 idn2 imagemagick ipset jq zip mariadb-client mariadb-server mc nginx openssl openssh-server
+software="acl httpd awstats bc bind ca-certificates clamav-daemon crudini curl dovecot dovecot-pigeonhole exim expect fail2ban fail2ban-firewalld flex ftp git gnupg2 idn2 imagemagick ipset jq zip mariadb-client mariadb-server mc nginx openssl openssh-server
   php$fpm_v php$fpm_v-apcu php$fpm_v-bz2 php$fpm_v-cgi php$fpm_v-cli php$fpm_v-common php$fpm_v-curl php$fpm_v-gd
   php$fpm_v-imagick php$fpm_v-imap php$fpm_v-intl php$fpm_v-ldap php$fpm_v-mbstring php$fpm_v-mysql php$fpm_v-opcache
-  php$fpm_v-pgsql php$fpm_v-pspell php$fpm_v-readline php$fpm_v-xml php$fpm_v-zip postgresql postgresql-server proftpd pwgen quota rrdtool rsyslog setpriv spamassassin sudo sysstat unzip vim vsftpd wget whois zip"
+  php$fpm_v-pgsql php$fpm_v-pspell php$fpm_v-readline php$fpm_v-xml php$fpm_v-zip postgresql postgresql-server proftpd pwgen quota rrdtool rsyslog setpriv spamassassin sudo sysstat unzip vim vsftpd wget whois zip zstd"
 
 installer_dependencies="ca-certificates curl gnupg2 openssl wget yum-utils"
 
@@ -352,7 +352,7 @@ mkdir -p "$hst_backups"
 
 # Pre-install packages
 echo "[ * ] Installing dependencies..."
-yum -y install $installer_dependencies >> $LOG
+yum -y install $installer_dependencies $LOG
 check_result $? "Package installation failed, check log file for more details."
 
 ## Check repository availability
@@ -597,7 +597,7 @@ fi
 echo -e "Installation backup directory: $hst_backups"
 
 # Print Log File Path
-echo "Installation log file: $LOG"
+echo "Installation log: journalctl -u hestia-install"
 
 # Print new line
 echo
@@ -677,7 +677,7 @@ fi
 # Installing PostgreSQL repo
 if [ "$postgresql" = 'yes' ]; then
 	echo "[ * ] PostgreSQL"
-	yum -y module enable postgresql
+	yum -y module enable postgresql $LOG
 fi
 
 # Echo for a new line
@@ -685,7 +685,11 @@ echo
 
 # Updating system
 echo -ne "Updating currently installed packages, please wait... "
-yum -y upgrade | tee -a $LOG
+yum -y upgrade $LOG
+
+# Start install dhparam.pem
+openssl dhparam -out /etc/pki/tls/dhparm.pem 4096 >/dev/null 2>&1 & $LOG
+DHPARAM_PID=$!
 
 #----------------------------------------------------------#
 #                         Backup                           #
@@ -766,12 +770,10 @@ if [ "$phpfpm" = 'yes' ]; then
 fi
 
 #----------------------------------------------------------#
-#                     Package Excludes                     #
+#                     Package Includes                     #
 #----------------------------------------------------------#
 
-# Excluding packages
-software=$(echo "$software" | sed -e "s/apache2.2-common//")
-
+# Including packages
 if [ "$apache" = 'yes' ]; then
 	software="$software httpd"
 fi
@@ -820,16 +822,7 @@ if [ "$fail2ban" = 'yes' ]; then
 	software="$software fail2ban fail2ban-firewalld")
 fi
 if [ "$phpfpm" = 'yes' ]; then
-	software=$(echo "$software" | sed -e "s/php$fpm_v-cgi//")
-	software=$(echo "$software" | sed -e "s/libapache2-mod-ruid2//")
-	software=$(echo "$software" | sed -e "s/libapache2-mod-php$fpm_v//")
-fi
-if [ "$release" = '20.04' ]; then
-	software=$(echo "$software" | sed -e "s/setpriv/util-linux/")
-	software=$(echo "$software" | sed -e "s/libzip4/libzip5/")
-fi
-if [ "$release" = '22.04' ]; then
-	software=$(echo "$software" | sed -e "s/setpriv/util-linux/")
+	software="$software"
 fi
 
 #----------------------------------------------------------#
@@ -843,7 +836,7 @@ localectl set-locale en_US.UTF-8
 echo "The installer is now downloading and installing all required packages."
 echo -ne "NOTE: This process may take 10 to 15 minutes to complete, please wait... "
 echo
-yum -y install $software >> $LOG &
+yum -y install $software $LOG
 BACK_PID=$!
 
 ## Check if package installation is done, print a spinner
@@ -886,9 +879,12 @@ echo
 #		dpkg -i $withdebs/hestia-nginx_*.deb > /dev/null 2>&1
 #	fi
 #fi
-mkdir -p $HESTIA/nginx
-cp -f $HESTIA_INSTALL_DIR/php-fpm/nginx-hestia.conf $HESTIA/nginx
-cp -f $HESTIA_INSTALL_DIR/nginx/php-hestia.conf $HESTIA/nginx
+cp -f $HESTIA_INSTALL_DIR/hestia/hestia.service /etc/systemd/system
+cp -f $HESTIA_INSTALL_DIR/nginx/hestia-nginx.service /etc/systemd/system
+cp -f $HESTIA_INSTALL_DIR/php/hestia-php.service /etc/systemd/system
+systemctl daemon-reload
+systemctl enable hestia hestia-php hestia-nginx
+systemctl start hestia hestia-php hestia-nginx
 
 #----------------------------------------------------------#
 #                     Configure system                     #
@@ -908,13 +904,8 @@ sed -i "s/[#]LoginGraceTime [[:digit:]]m/LoginGraceTime 1m/g" /etc/ssh/sshd_conf
 # Restart SSH daemon
 systemctl restart ssh
 
-# Disable AWStats cron
-rm -f /etc/cron.d/awstats
-# Replace awstatst function
-cp -f $HESTIA_INSTALL_DIR/logrotate/httpd-prerotate/* /etc/logrotate.d/httpd-prerotate/
-
 # Register /usr/sbin/nologin
-if [ -z "$(grep nologin /etc/shells)" ]; then
+if [ -z "$(grep '/usr/sbin/nologin' /etc/shells)" ]; then
 	echo "/usr/sbin/nologin" >> /etc/shells
 fi
 
@@ -1126,19 +1117,7 @@ $HESTIA/bin/v-change-sys-hostname $servername > /dev/null 2>&1
 
 # Configuring global OpenSSL options
 echo "[ * ] Configuring OpenSSL to improve TLS performance..."
-tls13_ciphers="TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384"
-if [ "$release" = "20.04" ]; then
-	if ! grep -qw "^openssl_conf = default_conf$" /etc/ssl/openssl.cnf 2> /dev/null; then
-		sed -i '/^oid_section		= new_oids$/a \\n# System default\nopenssl_conf = default_conf' /etc/ssl/openssl.cnf
-	fi
-	if ! grep -qw "^[default_conf]$" /etc/ssl/openssl.cnf 2> /dev/null; then
-		sed -i '$a [default_conf]\nssl_conf = ssl_sect\n\n[ssl_sect]\nsystem_default = hestia_openssl_sect\n\n[hestia_openssl_sect]\nCiphersuites = '"$tls13_ciphers"'\nOptions = PrioritizeChaCha' /etc/ssl/openssl.cnf
-	elif grep -qw "^system_default = system_default_sect$" /etc/ssl/openssl.cnf 2> /dev/null; then
-		sed -i '/^system_default = system_default_sect$/a system_default = hestia_openssl_sect\n\n[hestia_openssl_sect]\nCiphersuites = '"$tls13_ciphers"'\nOptions = PrioritizeChaCha' /etc/ssl/openssl.cnf
-	fi
-elif [ "$release" = "22.04" ]; then
-	sed -i '/^system_default = system_default_sect$/a system_default = hestia_openssl_sect\n\n[hestia_openssl_sect]\nCiphersuites = '"$tls13_ciphers"'\nOptions = PrioritizeChaCha' /etc/ssl/openssl.cnf
-fi
+# configured by default RHEL install
 
 # Generating SSL certificate
 echo "[ * ] Generating default self-signed SSL certificate..."
@@ -1164,8 +1143,21 @@ chown root:mail $HESTIA/ssl/*
 chmod 660 $HESTIA/ssl/*
 rm /tmp/hst.pem
 
-# Install dhparam.pem
-cp -f $HESTIA_INSTALL_DIR/ssl/dhparam.pem /etc/ssl
+# Continue install dhparam.pem
+
+kill -0 $DHPARAM_PID
+if [ $? ] ; then
+	echo Wait for the completing of the DHParam generation
+	spin_i=1
+	while kill -0 $DHPARAM_PID > /dev/null 2>&1; do
+	        printf "\b${spinner:spin_i++%${#spinner}:1}"
+        	sleep 0.5
+	done
+fi
+# Do a blank echo to get the \n back
+echo
+wait $DHPARAM_PID
+ln -s /etc/pki/tls/dhparm.pem /etc/ssl/dhparam.pem
 
 # Deleting old admin user
 if [ -n "$(grep ^admin: /etc/passwd)" ] && [ "$force" = 'yes' ]; then
@@ -1250,8 +1242,7 @@ if [ -n "$cf_ips" ] && [ "$(echo "$cf_ips" | jq -r '.success//""')" = "true" ]; 
 	echo "real_ip_header CF-Connecting-IP;" >> $cf_inc
 fi
 
-update-rc.d nginx defaults > /dev/null 2>&1
-systemctl start nginx >> $LOG
+systemctl start nginx $LOG
 check_result $? "nginx start failed"
 
 #----------------------------------------------------------#
@@ -1261,53 +1252,27 @@ check_result $? "nginx start failed"
 if [ "$apache" = 'yes' ]; then
 	echo "[ * ] Configuring Apache Web Server..."
 
-	mkdir -p /etc/apache2/conf.d
 	mkdir -p /etc/apache2/conf.d/domains
 
 	# Copy configuration files
-	cp -f $HESTIA_INSTALL_DIR/apache2/apache2.conf /etc/apache2/
-	cp -f $HESTIA_INSTALL_DIR/apache2/status.conf /etc/apache2/mods-available/hestia-status.conf
-	cp -f /etc/apache2/mods-available/status.load /etc/apache2/mods-available/hestia-status.load
-	cp -f $HESTIA_INSTALL_DIR/logrotate/apache2 /etc/logrotate.d/
+	cp -f $HESTIA_INSTALL_DIR/httpd/httpd.conf /etc/httpd/
+	cp -f $HESTIA_INSTALL_DIR/httpd/status.conf /etc/httpd/conf.d/hestia-status.conf
+	cp -f $HESTIA_INSTALL_DIR/logrotate/httpd /etc/logrotate.d/
 
 	# Enable needed modules
-	a2enmod rewrite > /dev/null 2>&1
-	a2enmod suexec > /dev/null 2>&1
-	a2enmod ssl > /dev/null 2>&1
-	a2enmod actions > /dev/null 2>&1
-	a2dismod --quiet status > /dev/null 2>&1
-	a2enmod --quiet hestia-status > /dev/null 2>&1
 
-	# Enable mod_ruid/mpm_itk or mpm_event
-	if [ "$phpfpm" = 'yes' ]; then
-		# Disable prefork and php, enable event
-		a2dismod php$fpm_v > /dev/null 2>&1
-		a2dismod mpm_prefork > /dev/null 2>&1
-		a2enmod mpm_event > /dev/null 2>&1
-		cp -f $HESTIA_INSTALL_DIR/apache2/hestia-event.conf /etc/apache2/conf.d/
-	else
-		a2enmod ruid2 > /dev/null 2>&1
-	fi
-
-	echo "# Powered by hestia" > /etc/apache2/sites-available/default
-	echo "# Powered by hestia" > /etc/apache2/sites-available/default-ssl
-	echo "# Powered by hestia" > /etc/apache2/ports.conf
-	echo -e "/home\npublic_html/cgi-bin" > /etc/apache2/suexec/www-data
-	touch /var/log/apache2/access.log /var/log/apache2/error.log
-	mkdir -p /var/log/apache2/domains
-	chmod a+x /var/log/apache2
-	chmod 640 /var/log/apache2/access.log /var/log/apache2/error.log
-	chmod 751 /var/log/apache2/domains
+	mkdir -p /var/log/httpd/domains
+	chmod a+x /var/log/httpd
+	chmod 751 /var/log/httpd/domains
 
 	# Prevent remote access to server-status page
-	sed -i '/Allow from all/d' /etc/apache2/mods-available/hestia-status.conf
+	sed -i '/Allow from all/d' /etc/httpd/conf.d/hestia-status.conf
 
-	update-rc.d apache2 defaults > /dev/null 2>&1
-	systemctl start apache2 >> $LOG
-	check_result $? "apache2 start failed"
+	systemctl start httpd $LOG
+	check_result $? "httpd start failed"
 else
-	update-rc.d apache2 disable > /dev/null 2>&1
-	systemctl stop apache2 > /dev/null 2>&1
+	systemctl disable httpd > /dev/null 2>&1
+	systemctl stop httpd > /dev/null 2>&1
 fi
 
 #----------------------------------------------------------#
@@ -1327,12 +1292,12 @@ if [ "$phpfpm" = "yes" ]; then
 
 	echo "[ * ] Configuring PHP-FPM $fpm_v..."
 	# Create www.conf for webmail and php(*)admin
-	cp -f $HESTIA_INSTALL_DIR/php-fpm/www.conf /etc/php/$fpm_v/fpm/pool.d/www.conf
-	update-rc.d php$fpm_v-fpm defaults > /dev/null 2>&1
-	systemctl start php$fpm_v-fpm >> $LOG
+	cp -f $HESTIA_INSTALL_DIR/php-fpm/www.conf /etc/opt/remi/php$fpm_v/php-fpm.d/www.conf
+	systemctl enable php$fpm_v-php-fpm > /dev/null 2>&1
+	systemctl start php$fpm_v-php-fpm $LOG
 	check_result $? "php-fpm start failed"
 	# Set default php version to $fpm_v
-	update-alternatives --set php /usr/bin/php$fpm_v > /dev/null 2>&1
+	#update-alternatives --set php /usr/bin/php$fpm_v > /dev/null 2>&1
 fi
 
 #----------------------------------------------------------#
@@ -1340,13 +1305,13 @@ fi
 #----------------------------------------------------------#
 
 echo "[ * ] Configuring PHP..."
-ZONE=$(timedatectl > /dev/null 2>&1 | grep Timezone | awk '{print $2}')
+ZONE=$(timedatectl > /dev/null 2>&1 | grep Time zone | awk '{print $3}')
 if [ -z "$ZONE" ]; then
 	ZONE='UTC'
 fi
-for pconf in $(find /etc/php* -name php.ini); do
-	sed -i "s%;date.timezone =%date.timezone = $ZONE%g" $pconf
-	sed -i 's%_open_tag = Off%_open_tag = On%g' $pconf
+for pconf in $(ls /etc/opt/remi/php*/php.d/ -d); do
+	echo "date.timezone = $ZONE" >> $pconf/99-hestia.ini
+	echo "short_open_tag = On" >> $pconf/99-hestia.ini
 done
 
 # Cleanup php session files not changed in the last 7 days (60*24*7 minutes)
@@ -1368,8 +1333,8 @@ if [ "$vsftpd" = 'yes' ]; then
 	touch /var/log/xferlog
 	chown root:adm /var/log/xferlog
 	chmod 640 /var/log/xferlog
-	update-rc.d vsftpd defaults > /dev/null 2>&1
-	systemctl start vsftpd >> $LOG
+	systemctl enable vsftpd > /dev/null 2>&1
+	systemctl start vsftpd $LOG
 	check_result $? "vsftpd start failed"
 fi
 
@@ -1379,25 +1344,13 @@ fi
 
 if [ "$proftpd" = 'yes' ]; then
 	echo "[ * ] Configuring ProFTPD server..."
-	echo "127.0.0.1 $servername" >> /etc/hosts
+	[[ -z $(grep -i "$servername" /etc/hosts) ]] && echo "127.0.0.1 $servername" >> /etc/hosts
 	cp -f $HESTIA_INSTALL_DIR/proftpd/proftpd.conf /etc/proftpd/
 	cp -f $HESTIA_INSTALL_DIR/proftpd/tls.conf /etc/proftpd/
 
-	# Disable TLS 1.3 support for ProFTPD versions older than v1.3.7a
-	if [ "$release" = '20.04' ]; then
-		sed -i 's/TLSProtocol                             TLSv1.2 TLSv1.3/TLSProtocol                             TLSv1.2/' /etc/proftpd/tls.conf
-	fi
-
-	update-rc.d proftpd defaults > /dev/null 2>&1
-	systemctl start proftpd >> $LOG
+	systemctl enable proftpd > /dev/null 2>&1
+	systemctl start proftpd $LOG
 	check_result $? "proftpd start failed"
-
-	if [ "$release" = '22.04' ]; then
-		unit_files="$(systemctl list-unit-files | grep proftpd)"
-		if [[ "$unit_files" =~ "disabled" ]]; then
-			systemctl enable proftpd
-		fi
-	fi
 fi
 
 #----------------------------------------------------------#
@@ -1417,7 +1370,7 @@ if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
 
 	if [ "$mysql_type" = 'MariaDB' ]; then
 		# Run mysql_install_db
-		mysql_install_db >> $LOG
+		mysql_install_db $LOG
 	fi
 
 	# Remove symbolic link
@@ -1432,16 +1385,14 @@ if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
 	fi
 
 	if [ "$mysql_type" = 'MariaDB' ]; then
-		update-rc.d mariadb defaults > /dev/null 2>&1
-		systemctl -q enable mariadb 2> /dev/null
-		systemctl start mariadb >> $LOG
+		systemctl enable mariadb 2> /dev/null
+		systemctl start mariadb $LOG
 		check_result $? "${mysql_type,,} start failed"
 	fi
 
 	if [ "$mysql_type" = 'MySQL' ]; then
-		update-rc.d mysql defaults > /dev/null 2>&1
-		systemctl -q enable mysql 2> /dev/null
-		systemctl start mysql >> $LOG
+		systemctl enable mysql 2> /dev/null
+		systemctl start mysql $LOG
 		check_result $? "${mysql_type,,} start failed"
 	fi
 
@@ -1487,58 +1438,49 @@ if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
 	echo "[ * ] Installing phpMyAdmin version v$pma_v..."
 
 	# Download latest phpmyadmin release
-	wget --quiet --retry-connrefused https://files.phpmyadmin.net/phpMyAdmin/$pma_v/phpMyAdmin-$pma_v-all-languages.tar.gz
+	yum -y install phpMyAdmin
 
-	# Unpack files
-	tar xzf phpMyAdmin-$pma_v-all-languages.tar.gz
+	## Create copy of config file
+	#cp -f $HESTIA_INSTALL_DIR/phpmyadmin/config.inc.php /etc/phpmyadmin/
+	#mkdir -p /var/lib/phpmyadmin/tmp
+	#chmod 770 /var/lib/phpmyadmin/tmp
+	#chown root:www-data /usr/share/phpmyadmin/tmp
 
-	# Create folders
-	mkdir -p /usr/share/phpmyadmin
-	mkdir -p /etc/phpmyadmin
-	mkdir -p /etc/phpmyadmin/conf.d/
-	mkdir /usr/share/phpmyadmin/tmp
+	## Set config and log directory
+	#sed -i "s|'configFile' => ROOT_PATH . 'config.inc.php',|'configFile' => '/etc/phpmyadmin/config.inc.php',|g" /usr/share/phpmyadmin/libraries/vendor_config.php
 
-	# Configuring Apache2 for PHPMYADMIN
-	if [ "$apache" = 'yes' ]; then
-		touch /etc/apache2/conf.d/phpmyadmin.inc
-	fi
-
-	# Overwrite old files
-	cp -rf phpMyAdmin-$pma_v-all-languages/* /usr/share/phpmyadmin
-
-	# Create copy of config file
-	cp -f $HESTIA_INSTALL_DIR/phpmyadmin/config.inc.php /etc/phpmyadmin/
-	mkdir -p /var/lib/phpmyadmin/tmp
-	chmod 770 /var/lib/phpmyadmin/tmp
-	chown root:www-data /usr/share/phpmyadmin/tmp
-
-	# Set config and log directory
-	sed -i "s|'configFile' => ROOT_PATH . 'config.inc.php',|'configFile' => '/etc/phpmyadmin/config.inc.php',|g" /usr/share/phpmyadmin/libraries/vendor_config.php
-
-	# Create temporary folder and change permission
-	chmod 770 /usr/share/phpmyadmin/tmp
-	chown root:www-data /usr/share/phpmyadmin/tmp
+	## Create temporary folder and change permission
+	#chmod 770 /usr/share/phpmyadmin/tmp
+	#chown root:www-data /usr/share/phpmyadmin/tmp
 
 	# Generate blow fish
-	blowfish=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 32)
-	sed -i "s|%blowfish_secret%|$blowfish|" /etc/phpmyadmin/config.inc.php
+	blowfish=$(pwgen -s 32 1)
+	PMADB=phpmyadmin
+	PMAUSER=phpmyadmin
+	PMAPASS=$(gen_pass)
+	sed -i "s|\$cfg['blowfish_secret'].*|\$cfg['blowfish_secret'] = '$blowfish';|" /etc/phpMyAdmin/config.inc.php
+	sed -i "s|\$cfg['Servers'][$i]['controluser'].*|\$cfg['Servers'][$i]['controluser'] = '$PMAUSER';|" /etc/phpMyAdmin/config.inc.php
+	sed -i "s|\$cfg['Servers'][$i]['controlpass'].*|\$cfg['Servers'][$i]['controlpass'] = '$PMAPASS';|" /etc/phpMyAdmin/config.inc.php
+	sed -i "s|\$cfg['Servers'][\$i]['pmadb']|\$cfg['Servers'][\$i]['pmadb'] = '$PMADB';|" /etc/phpMyAdmin/config.inc.php
 
-	# Clean Up
-	rm -fr phpMyAdmin-$pma_v-all-languages
-	rm -f phpMyAdmin-$pma_v-all-languages.tar.gz
-
-	write_config_value "DB_PMA_ALIAS" "phpmyadmin"
+	write_config_value "DB_PMA_ALIAS" $PMADB
 	$HESTIA/bin/v-change-sys-db-alias 'pma' "phpmyadmin"
 
-	# Special thanks to Pavel Galkin (https://skurudo.ru)
-	# https://github.com/skurudo/phpmyadmin-fixer
-	# shellcheck source=/usr/local/hestia/install/deb/phpmyadmin/pma.sh
-	source $HESTIA_INSTALL_DIR/phpmyadmin/pma.sh > /dev/null 2>&1
+	#DROP USER and TABLE
+	mysql -uroot << EOF
+DROP USER '$PMAUSER'@'localhost';
+DROP DATABASE $PMADB;
+FLUSH PRIVILEGES;
+CREATE USER '$PMAUSER'@'localhost' IDENTIFIED BY '$PASS';
+CREATE DATABASE $PMADB;
+USE $PMADB;
+GRANT USAGE ON $PMADB.* TO '$PMAUSER'@'localhost' IDENTIFIED BY '$PASS';
+GRANT ALL PRIVILEGES ON $PMADB.* TO '$PMAUSER'@'localhost';
+FLUSH PRIVILEGES;
+EOF
 
-	# limit access to /etc/phpmyadmin/
-	chown -R root:www-data /etc/phpmyadmin/
-	chmod -R 640 /etc/phpmyadmin/*
-	chmod 750 /etc/phpmyadmin/conf.d/
+	#MYSQL DB and TABLES ADDITION
+	mysql -uroot < /usr/share/phpMyAdmin/sql/create_tables.sql
 fi
 
 #----------------------------------------------------------#
@@ -1585,14 +1527,6 @@ if [ "$named" = 'yes' ]; then
 	chown bind:bind /var/cache/bind
 	chmod 640 /etc/bind/named.conf
 	chmod 640 /etc/bind/named.conf.options
-	aa-complain /usr/sbin/named > /dev/null 2>&1
-	echo "/home/** rwm," >> /etc/apparmor.d/local/usr.sbin.named 2> /dev/null
-	if ! grep --quiet lxc /proc/1/environ; then
-		systemctl status apparmor > /dev/null 2>&1
-		if [ $? -ne 0 ]; then
-			systemctl restart apparmor >> $LOG
-		fi
-	fi
 	update-rc.d bind9 defaults > /dev/null 2>&1
 	systemctl start bind9
 	check_result $? "bind9 start failed"
@@ -1648,7 +1582,7 @@ if [ "$exim" = 'yes' ]; then
 	update-rc.d -f postfix remove > /dev/null 2>&1
 	systemctl stop postfix > /dev/null 2>&1
 	update-rc.d exim4 defaults
-	systemctl start exim4 >> $LOG
+	systemctl start exim4 $LOG
 	check_result $? "exim4 start failed"
 fi
 
@@ -1674,7 +1608,7 @@ if [ "$dovecot" = 'yes' ]; then
 	fi
 
 	update-rc.d dovecot defaults
-	systemctl start dovecot >> $LOG
+	systemctl start dovecot $LOG
 	check_result $? "dovecot start failed"
 fi
 
@@ -1688,7 +1622,7 @@ if [ "$clamd" = 'yes' ]; then
 	cp -f $HESTIA_INSTALL_DIR/clamav/clamd.conf /etc/clamav/
 	update-rc.d clamav-daemon defaults
 	echo -ne "[ * ] Installing ClamAV anti-virus definitions... "
-	/usr/bin/freshclam >> $LOG > /dev/null 2>&1
+	/usr/bin/freshclam 2>&1 & $LOG
 	BACK_PID=$!
 	spin_i=1
 	while kill -0 $BACK_PID > /dev/null 2>&1; do
@@ -1696,7 +1630,7 @@ if [ "$clamd" = 'yes' ]; then
 		sleep 0.5
 	done
 	echo
-	systemctl start clamav-daemon >> $LOG
+	systemctl start clamav-daemon $LOG
 	check_result $? "clamav-daemon start failed"
 fi
 
@@ -1708,7 +1642,7 @@ if [ "$spamd" = 'yes' ]; then
 	echo "[ * ] Configuring SpamAssassin..."
 	update-rc.d spamassassin defaults > /dev/null 2>&1
 	sed -i "s/ENABLED=0/ENABLED=1/" /etc/default/spamassassin
-	systemctl start spamassassin >> $LOG
+	systemctl start spamassassin $LOG
 	check_result $? "spamassassin start failed"
 	unit_files="$(systemctl list-unit-files | grep spamassassin)"
 	if [[ "$unit_files" =~ "disabled" ]]; then
@@ -1750,7 +1684,7 @@ if [ "$fail2ban" = 'yes' ]; then
 	update-rc.d fail2ban defaults
 	# Ubuntu 22.04 doesn't start F2B by default on boot
 	update-rc.d fail2ban enable
-	systemctl start fail2ban >> $LOG
+	systemctl start fail2ban $LOG
 	check_result $? "fail2ban start failed"
 fi
 
@@ -1931,7 +1865,7 @@ if [ "$apache" = 'yes' ] && [ "$nginx" = 'yes' ]; then
 	fi
 	echo "</IfModule>" >> remoteip.conf
 	sed -i "s/LogFormat \"%h/LogFormat \"%a/g" /etc/apache2/apache2.conf
-	a2enmod remoteip >> $LOG
+	a2enmod remoteip $LOG
 	systemctl restart apache2
 fi
 
@@ -1985,8 +1919,7 @@ $HESTIA/bin/v-update-sys-defaults
 
 # Update remaining packages since repositories have changed
 echo -ne "[ * ] Installing remaining software updates..."
-apt-get -qq update
-apt-get -y upgrade >> $LOG &
+yum -y upgrade & $LOG
 BACK_PID=$!
 echo
 

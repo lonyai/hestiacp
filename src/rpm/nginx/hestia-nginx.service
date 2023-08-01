@@ -8,7 +8,7 @@ After=hestia-php.service
 Type=forking
 EnvironmentFile=/etc/hestiacp/hestia.conf
 PIDFile=/run/hestia-nginx.pid
-ExecStart=/usr/sbin/nginx -c $HESTIA/nginx/php-hestia.conf
+ExecStart=/usr/sbin/nginx -c $HESTIA/src/rpm/nginx/nginx.conf
 ExecReload=/bin/sh -c "/bin/kill -s HUP $(/bin/cat /run/hestia-nginx.pid)"
 ExecStop=/bin/sh -c "/bin/kill -s TERM $(/bin/cat /run/hestia-nginx.pid)"
 

@@ -7,7 +7,7 @@ PartOf=hestia.service
 Type=notify
 PIDFile=/run/hestia-php.pid
 EnvironmentFile=/etc/hestiacp/hestia.conf
-ExecStart=/usr/sbin/php-fpm --nodaemonize --fpm-config $HESTIA/nginx/php-hestia.conf
+ExecStart=/usr/sbin/php-fpm --nodaemonize --fpm-config $HESTIA/src/rpm/php/php-fpm.conf
 ExecReload=/bin/kill -USR2 $MAINPID
 PrivateTmp=true
 

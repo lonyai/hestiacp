@@ -3,6 +3,9 @@
     notifempty
     compress
     sharedscripts
+    prerotate
+        /usr/local/hestia/bin/v-update-sys-queue webstats
+    endscript
     postrotate
         /sbin/service httpd reload > /dev/null 2>/dev/null || true
         [ ! -f /run/nginx.pid ] || kill -USR1 `cat /run/nginx.pid`
