@@ -38,7 +38,7 @@ fpm_v="81"
 mariadb_v="10.11"
 
 # Defining software pack for all distros
-software="acl httpd awstats bc bind ca-certificates clamav-daemon crudini curl dovecot dovecot-pigeonhole exim expect fail2ban fail2ban-firewalld flex ftp git gnupg2 idn2 imagemagick ipset jq zip mariadb-client mariadb-server mc nginx openssl openssh-server
+software="acl httpd awstats bc bind ca-certificates crudini curl dovecot dovecot-pigeonhole exim expect fail2ban fail2ban-firewalld flex ftp git gnupg2 idn2 imagemagick ipset jq zip mariadb-client mariadb-server mc nginx openssl openssh-server
   php$fpm_v php$fpm_v-apcu php$fpm_v-bz2 php$fpm_v-cgi php$fpm_v-cli php$fpm_v-common php$fpm_v-curl php$fpm_v-gd
   php$fpm_v-imagick php$fpm_v-imap php$fpm_v-intl php$fpm_v-ldap php$fpm_v-mbstring php$fpm_v-mysql php$fpm_v-opcache
   php$fpm_v-pgsql php$fpm_v-pspell php$fpm_v-readline php$fpm_v-xml php$fpm_v-zip postgresql postgresql-server proftpd pwgen quota rrdtool rsyslog setpriv spamassassin sudo sysstat unzip vim vsftpd wget whois zip zstd"
@@ -737,7 +737,7 @@ systemctl stop exim > /dev/null 2>&1
 cp -r /etc/exim/* $hst_backups/exim4 > /dev/null 2>&1
 
 # Backup ClamAV configuration
-systemctl stop clamav-daemon > /dev/null 2>&1
+systemctl stop clamav-daemon clamd@vesta clamd@hestia clamav-freshclam clamd > /dev/null 2>&1
 cp -r /etc/clamav/* $hst_backups/clamav > /dev/null 2>&1
 
 # Backup SpamAssassin configuration
@@ -790,7 +790,7 @@ if [ "$exim" = 'yes' ]; then
 	software="$software exim"
 fi
 if [ "$clamd" = 'yes' ]; then
-	software="$software clamav-daemon"
+	software="$software clamd clamav"
 fi
 if [ "$spamd" = 'yes' ]; then
 	software="$software spamassassin"
@@ -1506,7 +1506,7 @@ if [ "$postgresql" = 'yes' ]; then
 
 	# Configuring phpPgAdmin
 	if [ "$apache" = 'yes' ]; then
-		cp -f $HESTIA_INSTALL_DIR/pga/phppgadmin.conf /etc/apache2/conf.d/phppgadmin.inc
+		cp -f $HESTIA_INSTALL_DIR/pga/phppgadmin.conf /etc/httpd/conf.d/phppgadmin.inc
 	fi
 
 	rm phppgadmin-v$pga_v.tar.gz
@@ -1527,13 +1527,13 @@ if [ "$named" = 'yes' ]; then
 	chown bind:bind /var/cache/bind
 	chmod 640 /etc/bind/named.conf
 	chmod 640 /etc/bind/named.conf.options
-	update-rc.d bind9 defaults > /dev/null 2>&1
-	systemctl start bind9
+	systemctl enable named > /dev/null 2>&1
+	systemctl start named
 	check_result $? "bind9 start failed"
 
 	# Workaround for OpenVZ/Virtuozzo
 	if [ -e "/proc/vz/veinfo" ] && [ -e "/etc/rc.local" ]; then
-		sed -i "s/^exit 0/service bind9 restart\nexit 0/" /etc/rc.local
+		sed -i "s/^exit 0/systemctl restart named \nexit 0/" /etc/rc.local
 	fi
 fi
 
@@ -1543,46 +1543,42 @@ fi
 
 if [ "$exim" = 'yes' ]; then
 	echo "[ * ] Configuring Exim mail server..."
-	gpasswd -a Debian-exim mail > /dev/null 2>&1
-	exim_version=$(exim4 --version | head -1 | awk '{print $3}' | cut -f -2 -d .)
+	gpasswd -a exim mail > /dev/null 2>&1
+	exim_version=$(exim --version 2>/dev/null | head -1 | awk '{print $3}' | cut -f -2 -d .)
 	# if Exim version > 4.9.4 or greater!
 	if ! version_ge "4.9.4" "$exim_version"; then
 		# Ubuntu 22.04 (Jammy) uses Exim 4.95 instead but config works with Exim4.94
-		cp -f $HESTIA_INSTALL_DIR/exim/exim4.conf.4.95.template /etc/exim4/exim4.conf.template
+		cp -f $HESTIA_INSTALL_DIR/exim/exim4.conf.4.95.template /etc/exim/exim.conf.template
 	else
-		cp -f $HESTIA_INSTALL_DIR/exim/exim4.conf.template /etc/exim4/
+		cp -f $HESTIA_INSTALL_DIR/exim/exim4.conf.template /etc/exim/exim.conf.template
 	fi
-	cp -f $HESTIA_INSTALL_DIR/exim/dnsbl.conf /etc/exim4/
-	cp -f $HESTIA_INSTALL_DIR/exim/spam-blocks.conf /etc/exim4/
-	cp -f $HESTIA_INSTALL_DIR/exim/limit.conf /etc/exim4/
-	cp -f $HESTIA_INSTALL_DIR/exim/system.filter /etc/exim4/
-	touch /etc/exim4/white-blocks.conf
+	cp -f $HESTIA_INSTALL_DIR/exim/dnsbl.conf /etc/exim/
+	cp -f $HESTIA_INSTALL_DIR/exim/spam-blocks.conf /etc/exim/
+	cp -f $HESTIA_INSTALL_DIR/exim/limit.conf /etc/exim/
+	cp -f $HESTIA_INSTALL_DIR/exim/system.filter /etc/exim/
+	touch /etc/exim/white-blocks.conf
 
 	if [ "$spamd" = 'yes' ]; then
-		sed -i "s/#SPAM/SPAM/g" /etc/exim4/exim4.conf.template
+		sed -i "s/#SPAM/SPAM/g" /etc/exim/exim.conf.template
 	fi
 	if [ "$clamd" = 'yes' ]; then
-		sed -i "s/#CLAMD/CLAMD/g" /etc/exim4/exim4.conf.template
+		sed -i "s/#CLAMD/CLAMD/g" /etc/exim/exim.conf.template
 	fi
 
 	# Generate SRS KEY If not support just created it will get ignored anyway
 	srs=$(gen_pass)
-	echo $srs > /etc/exim4/srs.conf
-	chmod 640 /etc/exim4/srs.conf
-	chmod 640 /etc/exim4/exim4.conf.template
-	chown root:Debian-exim /etc/exim4/srs.conf
+	echo $srs > /etc/exim/srs.conf
+	chmod 640 /etc/exim/srs.conf
+	chmod 640 /etc/exim/exim.conf.template
+	chown root:exim /etc/exim/srs.conf
 
-	rm -rf /etc/exim4/domains
-	mkdir -p /etc/exim4/domains
+	rm -rf /etc/exim/domains
+	mkdir -p /etc/exim/domains
 
-	rm -f /etc/alternatives/mta
-	ln -s /usr/sbin/exim4 /etc/alternatives/mta
-	update-rc.d -f sendmail remove > /dev/null 2>&1
-	systemctl stop sendmail > /dev/null 2>&1
-	update-rc.d -f postfix remove > /dev/null 2>&1
-	systemctl stop postfix > /dev/null 2>&1
-	update-rc.d exim4 defaults
-	systemctl start exim4 $LOG
+	#rm -f /etc/alternatives/mta
+	#ln -s /usr/sbin/exim4 /etc/alternatives/mta
+	systemctl enable exim > /dev/null 2>&1
+	systemctl start exim $LOG
 	check_result $? "exim4 start failed"
 fi
 
@@ -1607,7 +1603,7 @@ if [ "$dovecot" = 'yes' ]; then
 		sed -i 's|ssl_min_protocol = TLSv1.2|ssl_protocols = !SSLv3 !TLSv1 !TLSv1.1|g' /etc/dovecot/conf.d/10-ssl.conf
 	fi
 
-	update-rc.d dovecot defaults
+	systemctl enable dovecot > /dev/null 2>&1
 	systemctl start dovecot $LOG
 	check_result $? "dovecot start failed"
 fi
@@ -1618,8 +1614,8 @@ fi
 
 if [ "$clamd" = 'yes' ]; then
 	gpasswd -a clamav mail > /dev/null 2>&1
-	gpasswd -a clamav Debian-exim > /dev/null 2>&1
-	cp -f $HESTIA_INSTALL_DIR/clamav/clamd.conf /etc/clamav/
+	gpasswd -a clamav exim > /dev/null 2>&1
+	cp -f $HESTIA_INSTALL_DIR/clamav/clamd.conf /etc/clamd.d/hestia.conf
 	update-rc.d clamav-daemon defaults
 	echo -ne "[ * ] Installing ClamAV anti-virus definitions... "
 	/usr/bin/freshclam 2>&1 & $LOG
@@ -1630,8 +1626,9 @@ if [ "$clamd" = 'yes' ]; then
 		sleep 0.5
 	done
 	echo
-	systemctl start clamav-daemon $LOG
-	check_result $? "clamav-daemon start failed"
+	systemctl enable clamd@hestia.service clamav-freshclam > /dev/null 2>&1
+	systemctl start clamd@hestia.service clamav-freshclam $LOG
+	check_result $? "clamav start failed"
 fi
 
 #----------------------------------------------------------#
@@ -1640,15 +1637,9 @@ fi
 
 if [ "$spamd" = 'yes' ]; then
 	echo "[ * ] Configuring SpamAssassin..."
-	update-rc.d spamassassin defaults > /dev/null 2>&1
-	sed -i "s/ENABLED=0/ENABLED=1/" /etc/default/spamassassin
+	systemctl enable spamassassin > /dev/null 2>&1
 	systemctl start spamassassin $LOG
 	check_result $? "spamassassin start failed"
-	unit_files="$(systemctl list-unit-files | grep spamassassin)"
-	if [[ "$unit_files" =~ "disabled" ]]; then
-		systemctl enable spamassassin > /dev/null 2>&1
-	fi
-	sed -i "s/#CRON=1/CRON=1/" /etc/default/spamassassin
 fi
 
 #----------------------------------------------------------#
@@ -1658,32 +1649,41 @@ fi
 if [ "$fail2ban" = 'yes' ]; then
 	echo "[ * ] Configuring fail2ban access monitor..."
 	cp -rf $HESTIA_INSTALL_DIR/fail2ban /etc/
-	if [ "$dovecot" = 'no' ]; then
-		fline=$(cat /etc/fail2ban/jail.local | grep -n dovecot-iptables -A 2)
-		fline=$(echo "$fline" | grep enabled | tail -n1 | cut -f 1 -d -)
-		sed -i "${fline}s/true/false/" /etc/fail2ban/jail.local
+	cat >/etc/fail2ban/jail.local <<EOF
+[DEFAULT]
+bantime = 1h
+
+[sshd]
+enabled = true
+
+[hestia]
+enabled = true
+filter  = hestia
+logpath = /var/log/hestia/auth.log
+
+EOF
+	if [ "$dovecot" = 'yes' ]; then
+		echo "[dovecot]" >> /etc/fail2ban/jail.local
+		echo "enabled = true" >> /etc/fail2ban/jail.local
 	fi
-	if [ "$exim" = 'no' ]; then
-		fline=$(cat /etc/fail2ban/jail.local | grep -n exim-iptables -A 2)
-		fline=$(echo "$fline" | grep enabled | tail -n1 | cut -f 1 -d -)
-		sed -i "${fline}s/true/false/" /etc/fail2ban/jail.local
+	if [ "$exim" = 'yes' ]; then
+		echo "[exim]" >> /etc/fail2ban/jail.local
+		echo "enabled = true" >> /etc/fail2ban/jail.local
+	fi
+	if [ "$sieve" = 'yes' ]; then
+		echo "[sieve]" >> /etc/fail2ban/jail.local
+		echo "enabled = true" >> /etc/fail2ban/jail.local
 	fi
 	if [ "$vsftpd" = 'yes' ]; then
-		# Create vsftpd Log File
-		if [ ! -f "/var/log/vsftpd.log" ]; then
-			touch /var/log/vsftpd.log
-		fi
-		fline=$(cat /etc/fail2ban/jail.local | grep -n vsftpd-iptables -A 2)
-		fline=$(echo "$fline" | grep enabled | tail -n1 | cut -f 1 -d -)
-		sed -i "${fline}s/false/true/" /etc/fail2ban/jail.local
+		echo "[vsftpd]" >> /etc/fail2ban/jail.local
+		echo "enabled = true" >> /etc/fail2ban/jail.local
 	fi
-	if [ -f /etc/fail2ban/jail.d/defaults-debian.conf ]; then
-		rm -f /etc/fail2ban/jail.d/defaults-debian.conf
+	if [ "$proftpd" = 'yes' ]; then
+		echo "[proftpd]" >> /etc/fail2ban/jail.local
+		echo "enabled = true" >> /etc/fail2ban/jail.local
 	fi
 
-	update-rc.d fail2ban defaults
-	# Ubuntu 22.04 doesn't start F2B by default on boot
-	update-rc.d fail2ban enable
+	systemctl enable fail2ban > /dev/null 2>&1
 	systemctl start fail2ban $LOG
 	check_result $? "fail2ban start failed"
 fi
@@ -1745,10 +1745,6 @@ if [ "$sieve" = 'yes' ]; then
 	sed -i "s/\stransport = local_delivery/ transport = dovecot_virtual_delivery/" /etc/exim4/exim4.conf.template
 	sed -i "s/address_pipe:/dovecot_virtual_delivery:\n  driver = pipe\n  command = \/usr\/lib\/dovecot\/dovecot-lda -e -d \${extract{1}{:}{\${lookup{\$local_part}lsearch{\/etc\/exim4\/domains\/\${lookup{\$domain}dsearch{\/etc\/exim4\/domains\/}}\/accounts}}}}@\${lookup{\$domain}dsearch{\/etc\/exim4\/domains\/}}\n  delivery_date_add\n  envelope_to_add\n  return_path_add\n  log_output = true\n  log_defer_output = true\n  user = \${extract{2}{:}{\${lookup{\$local_part}lsearch{\/etc\/exim4\/domains\/\${lookup{\$domain}dsearch{\/etc\/exim4\/domains\/}}\/passwd}}}}\n  group = mail\n  return_output\n\naddress_pipe:/g" /etc/exim4/exim4.conf.template
 
-	# Permission changes
-	chown -R dovecot:mail /var/log/dovecot.log
-	chmod 660 /var/log/dovecot.log
-
 	if [ -d "/var/lib/roundcube" ]; then
 		# Modify Roundcube config
 		mkdir -p $RC_CONFIG_DIR/plugins/managesieve
@@ -1763,7 +1759,7 @@ if [ "$sieve" = 'yes' ]; then
 
 	# Restart Dovecot and exim4
 	systemctl restart dovecot > /dev/null 2>&1
-	systemctl restart exim4 > /dev/null 2>&1
+	systemctl restart exim > /dev/null 2>&1
 fi
 
 #----------------------------------------------------------#
@@ -1797,7 +1793,7 @@ echo "[ * ] Configuring PHP dependencies..."
 $HESTIA/bin/v-add-sys-dependencies quiet
 
 echo "[ * ] Installing Rclone..."
-curl -s https://rclone.org/install.sh | bash > /dev/null 2>&1
+yum -y install rclone $LOG
 
 #----------------------------------------------------------#
 #                   Configure IP                           #
@@ -1819,6 +1815,15 @@ local_ip="$primary_ipv4"
 # Configuring firewall
 if [ "$iptables" = 'yes' ]; then
 	$HESTIA/bin/v-update-firewall
+else
+	for I in ftp http https ssh smtp smtps submission imap imaps pop3 pop3s; do
+		firewall-cmd --add-service=$I
+		firewall-cmd --add-service=$I --permanent
+	done
+	for I in 8083/tcp 12000-12100/tcp ; do
+		firewall-cmd --add-port=$I
+		firewall-cmd --add-port=$I --permanent
+	done
 fi
 
 # Get public IP
@@ -1852,21 +1857,20 @@ fi
 # Configuring libapache2-mod-remoteip
 if [ "$apache" = 'yes' ] && [ "$nginx" = 'yes' ]; then
 	cd /etc/apache2/mods-available
-	echo "<IfModule mod_remoteip.c>" > remoteip.conf
-	echo "  RemoteIPHeader X-Real-IP" >> remoteip.conf
+	echo "<IfModule mod_remoteip.c>" > /etc/httpd/modules/remoteip.conf
+	echo "  RemoteIPHeader X-Real-IP" >> /etc/httpd/modules/remoteip.conf
 	if [ "$local_ip" != "127.0.0.1" ] && [ "$pub_ipv4" != "127.0.0.1" ]; then
-		echo "  RemoteIPInternalProxy 127.0.0.1" >> remoteip.conf
+		echo "  RemoteIPInternalProxy 127.0.0.1" >> /etc/httpd/modules/remoteip.conf
 	fi
 	if [ -n "$local_ip" ] && [ "$local_ip" != "$pub_ipv4" ]; then
-		echo "  RemoteIPInternalProxy $local_ip" >> remoteip.conf
+		echo "  RemoteIPInternalProxy $local_ip" >> /etc/httpd/modules/remoteip.conf
 	fi
 	if [ -n "$pub_ipv4" ]; then
-		echo "  RemoteIPInternalProxy $pub_ipv4" >> remoteip.conf
+		echo "  RemoteIPInternalProxy $pub_ipv4" >> /etc/httpd/modules/remoteip.conf
 	fi
-	echo "</IfModule>" >> remoteip.conf
-	sed -i "s/LogFormat \"%h/LogFormat \"%a/g" /etc/apache2/apache2.conf
-	a2enmod remoteip $LOG
-	systemctl restart apache2
+	echo "</IfModule>" >> /etc/httpd/modules/remoteip.conf
+	sed -i "s/LogFormat \"%h/LogFormat \"%a/g" /etc/httpd/conf/httpd.conf
+	systemctl restart httpd
 fi
 
 # Adding default domain
@@ -1901,7 +1905,14 @@ hour=$(gen_pass '1234567' '1')
 $HESTIA/bin/v-add-cron-job 'admin' "$min" "$hour" '*' '*' '*' "$command"
 
 # Enable automatic updates
-$HESTIA/bin/v-add-cron-hestia-autoupdate apt
+#$HESTIA/bin/v-add-cron-hestia-autoupdate apt
+cat > /etc/cron.daily/hestia-autoupdate.sh <<EOF
+#!/bin/bash
+. /etc/profile.d/hestia.sh
+cd $HESTIA
+git fetch
+systemctl restart hestia hestia-php hestia-nginx
+EOF
 
 # Building initital rrd images
 $HESTIA/bin/v-update-sys-rrd
@@ -1924,7 +1935,7 @@ BACK_PID=$!
 echo
 
 # Starting Hestia service
-update-rc.d hestia defaults
+systemctl enable hestia
 systemctl start hestia
 check_result $? "hestia start failed"
 chown admin:admin $HESTIA/data/sessions
@@ -1941,9 +1952,18 @@ echo "@reboot root sleep 10 && rm /etc/cron.d/hestia-ssl && PATH='/usr/local/sbi
 #----------------------------------------------------------#
 
 echo "[ * ] Updating configuration files..."
+
+if [ "$fromvesta" = "yes" ] ; then
+	for I in packages templates users ; do
+		cp -fr /usr/local/vesta/data/$I/* $HESTIA/data/$I/
+	done
+fi
+
 BIN="$HESTIA/bin"
 source $HESTIA/func/syshealth.sh
 syshealth_repair_system_config
+
+$HESTIA/bin/v-list-users | tail -n +3 | awk '{print $1}' | xargs -n 1 v-rebuild-user $LOG
 
 # Add /usr/local/hestia/bin/ to path variable
 echo 'if [ "${PATH#*/usr/local/hestia/bin*}" = "$PATH" ]; then
