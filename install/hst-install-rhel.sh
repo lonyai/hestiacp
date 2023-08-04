@@ -18,7 +18,8 @@ source /etc/os-release
 RHOST='rpm.hestiacp.com'
 VERSION=$ID
 HESTIA='/usr/local/hestia'
-LOG=' | logger --tag hestia-install'
+#LOG="tee -a /root/hst_install_backups/hst_install-$(date +%d%m%Y%H%M).log"
+LOG='logger --tag hestia-install'
 memory=$(grep 'MemTotal' /proc/meminfo | tr ' ' '\n' | grep [0-9])
 hst_backups="/root/hst_install_backups/$(date +%d%m%Y%H%M)"
 spinner="/-\|"
@@ -352,7 +353,7 @@ mkdir -p "$hst_backups"
 
 # Pre-install packages
 echo "[ * ] Installing dependencies..."
-yum -y install $installer_dependencies $LOG
+yum -y install $installer_dependencies | $LOG
 check_result $? "Package installation failed, check log file for more details."
 
 ## Check repository availability
@@ -677,7 +678,7 @@ fi
 # Installing PostgreSQL repo
 if [ "$postgresql" = 'yes' ]; then
 	echo "[ * ] PostgreSQL"
-	yum -y module enable postgresql $LOG
+	yum -y module enable postgresql | $LOG
 fi
 
 # Echo for a new line
@@ -685,10 +686,10 @@ echo
 
 # Updating system
 echo -ne "Updating currently installed packages, please wait... "
-yum -y upgrade $LOG
+yum -y upgrade | $LOG
 
 # Start install dhparam.pem
-openssl dhparam -out /etc/pki/tls/dhparm.pem 4096 >/dev/null 2>&1 & $LOG
+openssl dhparam -out /etc/pki/tls/dhparm.pem 4096 >/dev/null 2>&1 & | $LOG
 DHPARAM_PID=$!
 
 #----------------------------------------------------------#
@@ -836,7 +837,7 @@ localectl set-locale en_US.UTF-8
 echo "The installer is now downloading and installing all required packages."
 echo -ne "NOTE: This process may take 10 to 15 minutes to complete, please wait... "
 echo
-yum -y install $software $LOG
+yum -y install $software | $LOG
 BACK_PID=$!
 
 ## Check if package installation is done, print a spinner
@@ -1242,7 +1243,7 @@ if [ -n "$cf_ips" ] && [ "$(echo "$cf_ips" | jq -r '.success//""')" = "true" ]; 
 	echo "real_ip_header CF-Connecting-IP;" >> $cf_inc
 fi
 
-systemctl start nginx $LOG
+systemctl start nginx | $LOG
 check_result $? "nginx start failed"
 
 #----------------------------------------------------------#
@@ -1268,7 +1269,7 @@ if [ "$apache" = 'yes' ]; then
 	# Prevent remote access to server-status page
 	sed -i '/Allow from all/d' /etc/httpd/conf.d/hestia-status.conf
 
-	systemctl start httpd $LOG
+	systemctl start httpd | $LOG
 	check_result $? "httpd start failed"
 else
 	systemctl disable httpd > /dev/null 2>&1
@@ -1294,7 +1295,7 @@ if [ "$phpfpm" = "yes" ]; then
 	# Create www.conf for webmail and php(*)admin
 	cp -f $HESTIA_INSTALL_DIR/php-fpm/www.conf /etc/opt/remi/php$fpm_v/php-fpm.d/www.conf
 	systemctl enable php$fpm_v-php-fpm > /dev/null 2>&1
-	systemctl start php$fpm_v-php-fpm $LOG
+	systemctl start php$fpm_v-php-fpm | $LOG
 	check_result $? "php-fpm start failed"
 	# Set default php version to $fpm_v
 	#update-alternatives --set php /usr/bin/php$fpm_v > /dev/null 2>&1
@@ -1334,7 +1335,7 @@ if [ "$vsftpd" = 'yes' ]; then
 	chown root:adm /var/log/xferlog
 	chmod 640 /var/log/xferlog
 	systemctl enable vsftpd > /dev/null 2>&1
-	systemctl start vsftpd $LOG
+	systemctl start vsftpd | $LOG
 	check_result $? "vsftpd start failed"
 fi
 
@@ -1349,7 +1350,7 @@ if [ "$proftpd" = 'yes' ]; then
 	cp -f $HESTIA_INSTALL_DIR/proftpd/tls.conf /etc/proftpd/
 
 	systemctl enable proftpd > /dev/null 2>&1
-	systemctl start proftpd $LOG
+	systemctl start proftpd | $LOG
 	check_result $? "proftpd start failed"
 fi
 
@@ -1370,7 +1371,7 @@ if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
 
 	if [ "$mysql_type" = 'MariaDB' ]; then
 		# Run mysql_install_db
-		mysql_install_db $LOG
+		mysql_install_db | $LOG
 	fi
 
 	# Remove symbolic link
@@ -1386,13 +1387,13 @@ if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
 
 	if [ "$mysql_type" = 'MariaDB' ]; then
 		systemctl enable mariadb 2> /dev/null
-		systemctl start mariadb $LOG
+		systemctl start mariadb | $LOG
 		check_result $? "${mysql_type,,} start failed"
 	fi
 
 	if [ "$mysql_type" = 'MySQL' ]; then
 		systemctl enable mysql 2> /dev/null
-		systemctl start mysql $LOG
+		systemctl start mysql | $LOG
 		check_result $? "${mysql_type,,} start failed"
 	fi
 
@@ -1578,7 +1579,7 @@ if [ "$exim" = 'yes' ]; then
 	#rm -f /etc/alternatives/mta
 	#ln -s /usr/sbin/exim4 /etc/alternatives/mta
 	systemctl enable exim > /dev/null 2>&1
-	systemctl start exim $LOG
+	systemctl start exim | $LOG
 	check_result $? "exim4 start failed"
 fi
 
@@ -1604,7 +1605,7 @@ if [ "$dovecot" = 'yes' ]; then
 	fi
 
 	systemctl enable dovecot > /dev/null 2>&1
-	systemctl start dovecot $LOG
+	systemctl start dovecot | $LOG
 	check_result $? "dovecot start failed"
 fi
 
@@ -1618,7 +1619,7 @@ if [ "$clamd" = 'yes' ]; then
 	cp -f $HESTIA_INSTALL_DIR/clamav/clamd.conf /etc/clamd.d/hestia.conf
 	update-rc.d clamav-daemon defaults
 	echo -ne "[ * ] Installing ClamAV anti-virus definitions... "
-	/usr/bin/freshclam 2>&1 & $LOG
+	/usr/bin/freshclam 2>&1 & | $LOG
 	BACK_PID=$!
 	spin_i=1
 	while kill -0 $BACK_PID > /dev/null 2>&1; do
@@ -1627,7 +1628,7 @@ if [ "$clamd" = 'yes' ]; then
 	done
 	echo
 	systemctl enable clamd@hestia.service clamav-freshclam > /dev/null 2>&1
-	systemctl start clamd@hestia.service clamav-freshclam $LOG
+	systemctl start clamd@hestia.service clamav-freshclam | $LOG
 	check_result $? "clamav start failed"
 fi
 
@@ -1638,7 +1639,7 @@ fi
 if [ "$spamd" = 'yes' ]; then
 	echo "[ * ] Configuring SpamAssassin..."
 	systemctl enable spamassassin > /dev/null 2>&1
-	systemctl start spamassassin $LOG
+	systemctl start spamassassin | $LOG
 	check_result $? "spamassassin start failed"
 fi
 
@@ -1684,7 +1685,7 @@ EOF
 	fi
 
 	systemctl enable fail2ban > /dev/null 2>&1
-	systemctl start fail2ban $LOG
+	systemctl start fail2ban | $LOG
 	check_result $? "fail2ban start failed"
 fi
 
@@ -1793,7 +1794,7 @@ echo "[ * ] Configuring PHP dependencies..."
 $HESTIA/bin/v-add-sys-dependencies quiet
 
 echo "[ * ] Installing Rclone..."
-yum -y install rclone $LOG
+yum -y install rclone | $LOG
 
 #----------------------------------------------------------#
 #                   Configure IP                           #
@@ -1930,7 +1931,7 @@ $HESTIA/bin/v-update-sys-defaults
 
 # Update remaining packages since repositories have changed
 echo -ne "[ * ] Installing remaining software updates..."
-yum -y upgrade & $LOG
+yum -y upgrade & | $LOG
 BACK_PID=$!
 echo
 
@@ -1963,7 +1964,7 @@ BIN="$HESTIA/bin"
 source $HESTIA/func/syshealth.sh
 syshealth_repair_system_config
 
-$HESTIA/bin/v-list-users | tail -n +3 | awk '{print $1}' | xargs -n 1 v-rebuild-user $LOG
+$HESTIA/bin/v-list-users | tail -n +3 | awk '{print $1}' | xargs -n 1 v-rebuild-user | $LOG
 
 # Add /usr/local/hestia/bin/ to path variable
 echo 'if [ "${PATH#*/usr/local/hestia/bin*}" = "$PATH" ]; then
