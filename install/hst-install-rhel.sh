@@ -326,7 +326,7 @@ if [ "x$(id -u)" != 'x0' ]; then
 	check_result 1 "Script can be run executed only by root"
 fi
 
-if [ -d "/usr/local/hestia" ]; then
+if [ -e "$HESTIA/conf/hestia.conf" ]; then
 	check_result 1 "Hestia install detected. Unable to continue"
 fi
 
