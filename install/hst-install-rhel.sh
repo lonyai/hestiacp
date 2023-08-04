@@ -18,7 +18,7 @@ source /etc/os-release
 RHOST='rpm.hestiacp.com'
 VERSION=$ID
 HESTIA='/usr/local/hestia'
-LOG="| logger --tag hestia-install"
+LOG=' | logger --tag hestia-install'
 memory=$(grep 'MemTotal' /proc/meminfo | tr ' ' '\n' | grep [0-9])
 hst_backups="/root/hst_install_backups/$(date +%d%m%Y%H%M)"
 spinner="/-\|"
