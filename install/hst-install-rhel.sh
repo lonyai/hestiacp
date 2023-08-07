@@ -41,12 +41,12 @@ mariadb_v="11.0"
 
 # Defining software pack for all distros
 software="acl awstats bash-completion bc bind ca-certificates crudini curl expect flex ftp gnupg2 
-  idn2 ImageMagick ipset jq zip MariaDB-client MariaDB-client-compat mc openssl openssh-server
+  idn2 ImageMagick ipset jq mc openssl openssh-server
   php php-apcu php-cgi php-cli php-common php-curl php-gd php-imagick php-imap php-intl 
   php-ldap php-mbstring php-mysqlnd php-opcache php-pgsql php-pspell php-readline php-xml php-zip 
-  postgresql pwgen quota rngd rrdtool rsyslog sudo sysstat unzip util-linux vim wget whois zip zstd"
+  postgresql pwgen quota rrdtool rsyslog sudo sysstat unzip util-linux vim wget whois zip zstd"
 
-installer_dependencies="ca-certificates curl glibc-langpack-en gnupg2 openssl wget yum-utils"
+installer_dependencies="ca-certificates curl glibc-langpack-en gnupg2 openssl rng-tools wget yum-utils"
 
 # Defining help function
 help() {
@@ -357,6 +357,9 @@ mkdir -p "$hst_backups"
 echo "[ * ] Installing dependencies..."
 yum -y install $installer_dependencies | $LOG
 check_result $? "Package installation failed, check log file for more details."
+
+systemctl enable rngd
+systemctl start rngd
 
 ## Check repository availability
 #wget --quiet "https://$RHOST" -O /dev/null
@@ -699,9 +702,6 @@ echo -ne "Updating currently installed packages, please wait... "
 yum -y upgrade | $LOG
 check_result $? "Package installation failed, check log file for more details."
 
-systemctl enable rngd
-systemctl start rngd
-
 # Start install dhparam.pem
 openssl dhparam -out /etc/pki/tls/dhparm.pem 4096 >/dev/null 2>&1 &
 DHPARAM_PID=$!
@@ -818,7 +818,7 @@ if [ "$sieve" = 'yes' ]; then
 	software="$software dovecot-pigeonhole"
 fi
 if [ "$mysql" = 'yes' ]; then
-	software="$software MariaDB-server MariaDB-server-compat"
+	software="$software MariaDB-client MariaDB-client-compat MariaDB-server MariaDB-server-compat"
 fi
 if [ "$mysql8" = 'yes' ]; then
 	software="$software mysql-server mysql-client"
