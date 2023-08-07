@@ -985,7 +985,7 @@ write_config_value "BACKEND_PORT" "8083"
 
 # Web stack
 if [ "$apache" = 'yes' ]; then
-	write_config_value "WEB_SYSTEM" "apache2"
+	write_config_value "WEB_SYSTEM" "httpd"
 	write_config_value "WEB_RGROUPS" "www-data"
 	write_config_value "WEB_PORT" "8080"
 	write_config_value "WEB_SSL_PORT" "8443"
@@ -1261,7 +1261,7 @@ check_result $? "nginx start failed"
 if [ "$apache" = 'yes' ]; then
 	echo "[ * ] Configuring Apache Web Server..."
 
-	mkdir -p /etc/apache2/conf.d/domains
+	mkdir -p /etc/httpd/conf.d/domains
 
 	# Copy configuration files
 	cp -f $HESTIA_INSTALL_DIR/httpd/httpd.conf /etc/httpd/
@@ -1858,9 +1858,7 @@ if [ -n "$pub_ipv4" ] && [ "$pub_ipv4" != "$ip" ]; then
 	ip="$pub_ipv4"
 fi
 
-# Configuring libapache2-mod-remoteip
 if [ "$apache" = 'yes' ] && [ "$nginx" = 'yes' ]; then
-	cd /etc/apache2/mods-available
 	echo "<IfModule mod_remoteip.c>" > /etc/httpd/modules/remoteip.conf
 	echo "  RemoteIPHeader X-Real-IP" >> /etc/httpd/modules/remoteip.conf
 	if [ "$local_ip" != "127.0.0.1" ] && [ "$pub_ipv4" != "127.0.0.1" ]; then
