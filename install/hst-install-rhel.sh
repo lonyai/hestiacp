@@ -691,7 +691,7 @@ echo -ne "Updating currently installed packages, please wait... "
 yum -y upgrade | $LOG
 
 # Start install dhparam.pem
-openssl dhparam -out /etc/pki/tls/dhparm.pem 4096 >/dev/null 2>&1 & | $LOG
+openssl dhparam -out /etc/pki/tls/dhparm.pem 4096 >/dev/null 2>&1 &
 DHPARAM_PID=$!
 
 #----------------------------------------------------------#
@@ -1621,13 +1621,6 @@ if [ "$clamd" = 'yes' ]; then
 	cp -f $HESTIA_INSTALL_DIR/clamav/clamd.conf /etc/clamd.d/hestia.conf
 	update-rc.d clamav-daemon defaults
 	echo -ne "[ * ] Installing ClamAV anti-virus definitions... "
-	/usr/bin/freshclam 2>&1 & | $LOG
-	BACK_PID=$!
-	spin_i=1
-	while kill -0 $BACK_PID > /dev/null 2>&1; do
-		printf "\b${spinner:spin_i++%${#spinner}:1}"
-		sleep 0.5
-	done
 	echo
 	systemctl enable clamd@hestia.service clamav-freshclam > /dev/null 2>&1
 	systemctl start clamd@hestia.service clamav-freshclam | $LOG
@@ -1933,8 +1926,7 @@ $HESTIA/bin/v-update-sys-defaults
 
 # Update remaining packages since repositories have changed
 echo -ne "[ * ] Installing remaining software updates..."
-yum -y upgrade & | $LOG
-BACK_PID=$!
+yum -y upgrade | $LOG
 echo
 
 # Starting Hestia service
