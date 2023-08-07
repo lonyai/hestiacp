@@ -777,8 +777,8 @@ mv -f /root/.my.cnf $hst_backups/mysql > /dev/null 2>&1
 if [ "$phpfpm" = 'yes' ]; then
 	fpm="php$fpm_v php$fpm_v-php php$fpm_v-php-common php$fpm_v-php-bcmath php$fpm_v-php-cli
          php$fpm_v-php-curl php$fpm_v-php-fpm php$fpm_v-php-gd php$fpm_v-php-intl
-         php$fpm_v-php-mysqlnd php$fpm_v-php-soap php$fpm_v-php-xml php$fpm_v-php-zip
-         php$fpm_v-php-mbstring php$fpm_v-php-pspell php$fpm_v-php-imagick"
+         php$fpm_v-php-soap php$fpm_v-php-xml php$fpm_v-php-zip php$fpm_v-php-mbstring 
+	 php$fpm_v-php-pspell php$fpm_v-php-imagick"
 	software="$software $fpm"
 	if [[ $fpm_v =~ 8.1|7.4 ]]; then
 	       software="$software php$fpm_v-php-ioncube-loader"
@@ -824,18 +824,19 @@ if [ "$mysql8" = 'yes' ]; then
 	software="$software mysql-server mysql-client"
 fi
 if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
-	software="$software php$fpm_v-mysqlnd"
 	if [ "$multiphp" = 'yes' ]; then
 		for v in "${multiphp_v[@]}"; do
-			software="$software php$v-mysqlnd"
+			software="$software php$v-php-mysqlnd"
 			if [[ $fpm_v =~ 8.1|7.4 ]]; then
 			       software="$software php$fpm_v-php-ioncube-loader"
 			fi
 		done
+	else
+		software="$software php$fpm_v-php-mysqlnd"
 	fi
 fi
 if [ "$postgresql" = 'yes' ]; then
-	software="$software postgresql php$fpm_v-pgsql"
+	software="$software postgresql php$fpm_v-php-pgsql"
 fi
 if [ "$fail2ban" = 'yes' ]; then
 	software="$software fail2ban fail2ban-firewalld"
