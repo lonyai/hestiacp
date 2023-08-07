@@ -42,11 +42,11 @@ mariadb_v="11.0"
 # Defining software pack for all distros
 software="acl awstats bash-completion bc bind ca-certificates crudini curl expect flex ftp gnupg2 
   idn2 ImageMagick ipset jq zip MariaDB-client MariaDB-client-compat mc openssl openssh-server
-  php php-apcu php-bz2 php-cgi php-cli php-common php-curl php-gd php-imagick php-imap php-intl 
-  php-ldap php-mbstring php-mysql php-opcache php-pgsql php-pspell php-readline php-xml php-zip 
+  php php-apcu php-cgi php-cli php-common php-curl php-gd php-imagick php-imap php-intl 
+  php-ldap php-mbstring php-mysqlnd php-opcache php-pgsql php-pspell php-readline php-xml php-zip 
   postgresql pwgen quota rrdtool rsyslog sudo sysstat unzip util-linux vim wget whois zip zstd"
 
-installer_dependencies="ca-certificates curl glibc-langpack-en gnupg2 openssl wget yum-utils"
+installer_dependencies="ca-certificates curl glibc-langpack-en gnupg2 openssl rngd wget yum-utils"
 
 # Defining help function
 help() {
@@ -357,6 +357,9 @@ mkdir -p "$hst_backups"
 echo "[ * ] Installing dependencies..."
 yum -y install $installer_dependencies | $LOG
 check_result $? "Package installation failed, check log file for more details."
+
+systemctl enable rngd
+systemctl start rngd
 
 ## Check repository availability
 #wget --quiet "https://$RHOST" -O /dev/null
@@ -767,9 +770,8 @@ mv -f /root/.my.cnf $hst_backups/mysql > /dev/null 2>&1
 if [ "$phpfpm" = 'yes' ]; then
 	fpm="php$fpm_v php$fpm_v-php php$fpm_v-php-common php$fpm_v-php-bcmath php$fpm_v-php-cli
          php$fpm_v-php-curl php$fpm_v-php-fpm php$fpm_v-php-gd php$fpm_v-php-intl
-         php$fpm_v-php-mysql php$fpm_v-php-soap php$fpm_v-php-xml php$fpm_v-php-zip
-         php$fpm_v-php-mbstring php$fpm_v-php-bz2 php$fpm_v-php-pspell
-         php$fpm_v-php-imagick"
+         php$fpm_v-php-mysqlnd php$fpm_v-php-soap php$fpm_v-php-xml php$fpm_v-php-zip
+         php$fpm_v-php-mbstring php$fpm_v-php-pspell php$fpm_v-php-imagick"
 	software="$software $fpm"
 	if [[ $fpm_v =~ 8.1|7.4 ]]; then
 	       software="$software php$fpm_v-php-ioncube-loader"
@@ -815,10 +817,10 @@ if [ "$mysql8" = 'yes' ]; then
 	software="$software mysql-server mysql-client"
 fi
 if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
-	software="$software php$fpm_v-mysql"
+	software="$software php$fpm_v-mysqlnd
 	if [ "$multiphp" = 'yes' ]; then
 		for v in "${multiphp_v[@]}"; do
-			software="$software php$v-mysql php$v-bz2"
+			software="$software php$v-mysqlnd"
 			if [[ $fpm_v =~ 8.1|7.4 ]]; then
 			       software="$software php$fpm_v-php-ioncube-loader"
 			fi
