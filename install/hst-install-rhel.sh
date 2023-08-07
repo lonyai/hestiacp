@@ -391,7 +391,7 @@ fi
 
 # Check network configuration
 nmcli general status | grep connected > /dev/null
-if [ $? ] && [ -z "$force" ]; then
+if [ ! $? ] && [ -z "$force" ]; then
 	check_result 1 "Unable to detect network configuration."
 fi
 
