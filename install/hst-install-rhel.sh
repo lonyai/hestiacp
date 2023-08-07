@@ -667,7 +667,7 @@ yum -y install https://rpms.remirepo.net/enterprise/remi-release-$release.rpm > 
 check_result $? "Package installation failed, check log file for more details."
 
 # Installing NodeJS repos
-yum module enable nodejs:18
+yum module enable nodejs:18/common
 
 # Installing MariaDB repo
 if [ "$mysql" == 'yes' ]; then
@@ -690,11 +690,11 @@ fi
 # Installing PostgreSQL repo
 if [ "$postgresql" = 'yes' ]; then
 	echo "[ * ] PostgreSQL"
-	yum -y module enable postgresql | $LOG
+	yum -y module enable postgresql/server | $LOG
 	check_result $? "Package installation failed, check log file for more details."
 fi
 
-yum -y module enable php:remi-$sysphp
+yum -y module enable php:remi-$sysphp/common
 check_result $? "Package installation failed, check log file for more details."
 
 # Echo for a new line
