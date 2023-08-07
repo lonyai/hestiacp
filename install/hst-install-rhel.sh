@@ -385,8 +385,9 @@ if [ -n "$conflicts" ] && [ -z "$force" ]; then
 	echo
 	read -p 'Would you like to remove the conflicting packages? [y/n] ' answer
 	if [ "$answer" = 'y' ] || [ "$answer" = 'Y' ]; then
-		yum -y remove $conflicts
 		unset $answer
+		yum -y remove $conflicts
+		check_result $? "Package installation failed, check log file for more details."
 	else
 		check_result 1 "Hestia Control Panel should be installed on a clean server."
 	fi
@@ -633,9 +634,11 @@ echo
 if [ $VERSION = "rhel" ] ; then
 	subscription-manager repos --enable codeready-builder-for-rhel-9-$(arch)-rpms
 	yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+	check_result $? "Package installation failed, check log file for more details."
 else
 	yum config-manager --set-enabled crb
 	yum -y install epel-release epel-next-release
+	check_result $? "Package installation failed, check log file for more details."
 fi
 
 # Installing Nginx repo
@@ -661,6 +664,7 @@ EOF
 # Installing sury PHP repo
 echo "[ * ] PHP"
 yum -y install https://rpms.remirepo.net/enterprise/remi-release-$release.rpm > /dev/null 2>&1
+check_result $? "Package installation failed, check log file for more details."
 
 # Installing MariaDB repo
 if [ "$mysql" == 'yes' ]; then
@@ -684,9 +688,11 @@ fi
 if [ "$postgresql" = 'yes' ]; then
 	echo "[ * ] PostgreSQL"
 	yum -y module enable postgresql | $LOG
+	check_result $? "Package installation failed, check log file for more details."
 fi
 
 yum -y module enable php:remi-$sysphp
+check_result $? "Package installation failed, check log file for more details."
 
 # Echo for a new line
 echo
@@ -694,6 +700,7 @@ echo
 # Updating system
 echo -ne "Updating currently installed packages, please wait... "
 yum -y upgrade | $LOG
+check_result $? "Package installation failed, check log file for more details."
 
 # Start install dhparam.pem
 openssl dhparam -out /etc/pki/tls/dhparm.pem 4096 >/dev/null 2>&1 &
@@ -817,7 +824,7 @@ if [ "$mysql8" = 'yes' ]; then
 	software="$software mysql-server mysql-client"
 fi
 if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
-	software="$software php$fpm_v-mysqlnd
+	software="$software php$fpm_v-mysqlnd"
 	if [ "$multiphp" = 'yes' ]; then
 		for v in "${multiphp_v[@]}"; do
 			software="$software php$v-mysqlnd"
@@ -849,6 +856,7 @@ echo "The installer is now downloading and installing all required packages."
 echo -ne "NOTE: This process may take 10 to 15 minutes to complete, please wait... "
 echo
 yum -y install $software | $LOG
+check_result $? "Package installation failed, check log file for more details."
 
 # Check Installation result
 check_result $? "yum install failed"
@@ -1439,6 +1447,7 @@ if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
 
 	# Download latest phpmyadmin release
 	yum -y install phpMyAdmin
+	check_result $? "Package installation failed, check log file for more details."
 
 	## Create copy of config file
 	#cp -f $HESTIA_INSTALL_DIR/phpmyadmin/config.inc.php /etc/phpmyadmin/
@@ -1787,6 +1796,7 @@ $HESTIA/bin/v-add-sys-dependencies quiet
 
 echo "[ * ] Installing Rclone..."
 yum -y install rclone | $LOG
+check_result $? "Package installation failed, check log file for more details."
 
 #----------------------------------------------------------#
 #                   Configure IP                           #
