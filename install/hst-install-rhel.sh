@@ -771,7 +771,7 @@ if [ "$phpfpm" = 'yes' ]; then
          php$fpm_v-php-mbstring php$fpm_v-php-bz2 php$fpm_v-php-pspell
          php$fpm_v-php-imagick"
 	software="$software $fpm"
-	if [ $fpm_v =~ "8.1|7.4"] ; then
+	if [[ $fpm_v =~ 8.1|7.4 ]]; then
 	       software="$software php$fpm_v-php-ioncube-loader"
 	fi
 fi
@@ -819,10 +819,9 @@ if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
 	if [ "$multiphp" = 'yes' ]; then
 		for v in "${multiphp_v[@]}"; do
 			software="$software php$v-mysql php$v-bz2"
-			if [ $fpm_v =~ "8.1|7.4" ] ; then
+			if [[ $fpm_v =~ 8.1|7.4 ]]; then
 			       software="$software php$fpm_v-php-ioncube-loader"
 			fi
-
 		done
 	fi
 fi
