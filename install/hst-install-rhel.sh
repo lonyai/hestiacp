@@ -39,8 +39,8 @@ fpm_v="81"
 mariadb_v="10.11"
 
 # Defining software pack for all distros
-software="acl httpd awstats bc bind ca-certificates crudini curl expect flex ftp gnupg2 idn2 
-  imagemagick ipset jq zip mariadb-client mc openssl openssh-server
+software="acl httpd awstats bash-completion bc bind ca-certificates crudini curl expect flex 
+  ftp gnupg2 idn2 imagemagick ipset jq zip mariadb-client mc openssl openssh-server
   php$fpm_v php$fpm_v-apcu php$fpm_v-bz2 php$fpm_v-cgi php$fpm_v-cli php$fpm_v-common php$fpm_v-curl php$fpm_v-gd
   php$fpm_v-imagick php$fpm_v-imap php$fpm_v-intl php$fpm_v-ldap php$fpm_v-mbstring php$fpm_v-mysql php$fpm_v-opcache
   php$fpm_v-pgsql php$fpm_v-pspell php$fpm_v-readline php$fpm_v-xml php$fpm_v-zip 
