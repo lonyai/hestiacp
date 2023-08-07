@@ -34,16 +34,15 @@ VERBOSE='no'
 # Define software versions
 HESTIA_INSTALL_VER='1.8.3'
 # Dependencies
-multiphp_v=("56" "70" "71" "72" "73" "74" "80" "81" "82")
-fpm_v="81"
+multiphp_v=("7.4" "8.0" "8.1" "8.2")
+sysphp="8.2"
 mariadb_v="10.11"
 
 # Defining software pack for all distros
 software="acl httpd awstats bash-completion bc bind ca-certificates crudini curl expect flex 
-  ftp gnupg2 idn2 imagemagick ipset jq zip mariadb-client mc openssl openssh-server
-  php$fpm_v php$fpm_v-apcu php$fpm_v-bz2 php$fpm_v-cgi php$fpm_v-cli php$fpm_v-common php$fpm_v-curl php$fpm_v-gd
-  php$fpm_v-imagick php$fpm_v-imap php$fpm_v-intl php$fpm_v-ldap php$fpm_v-mbstring php$fpm_v-mysql php$fpm_v-opcache
-  php$fpm_v-pgsql php$fpm_v-pspell php$fpm_v-readline php$fpm_v-xml php$fpm_v-zip 
+  ftp gnupg2 idn2 ImageMagick ipset jq zip MariaDB-client mc openssl openssh-server
+  php php-apcu php-bz2 php-cgi php-cli php-common php-curl php-gd php-imagick php-imap php-intl 
+  php-ldap php-mbstring php-mysql php-opcache php-pgsql php-pspell php-readline php-xml php-zip 
   postgresql-client pwgen quota rrdtool rsyslog setpriv sudo sysstat unzip vim wget whois zip zstd"
 
 installer_dependencies="ca-certificates curl gnupg2 openssl wget yum-utils"
@@ -363,7 +362,7 @@ check_result $? "Package installation failed, check log file for more details."
 #check_result $? "Unable to connect to the Hestia APT repository"
 
 # Check installed packages
-conflicts_pkg="mariadb-server|httpd|nginx|hestia|ufw"
+conflicts_pkg="mariadb-server|MariaDB-server|httpd|nginx|hestia|ufw"
 # Add mail servers to the list if exim will be installe
 if [ "$exim" = 'yes' ]; then
         conflicts_pkg="$conflicts_pkg|postfix|exim"
@@ -683,6 +682,8 @@ if [ "$postgresql" = 'yes' ]; then
 	yum -y module enable postgresql | $LOG
 fi
 
+yum -y module enable php:remi-8.2
+
 # Echo for a new line
 echo
 
@@ -764,11 +765,11 @@ mv -f /root/.my.cnf $hst_backups/mysql > /dev/null 2>&1
 #----------------------------------------------------------#
 
 if [ "$phpfpm" = 'yes' ]; then
-	fpm="php$fpm_v php$fpm_v-common php$fpm_v-bcmath php$fpm_v-cli
-         php$fpm_v-curl php$fpm_v-fpm php$fpm_v-gd php$fpm_v-intl
-         php$fpm_v-mysql php$fpm_v-soap php$fpm_v-xml php$fpm_v-zip
-         php$fpm_v-mbstring php$fpm_v-bz2 php$fpm_v-pspell
-         php$fpm_v-imagick"
+	fpm="php$fpm_v php$fpm_v-php php$fpm_v-php-common php$fpm_v-php-bcmath php$fpm_v-php-cli
+         php$fpm_v-php-curl php$fpm_v-php-fpm php$fpm_v-php-gd php$fpm_v-php-intl
+         php$fpm_v-php-mysql php$fpm_v-php-soap php$fpm_v-php-xml php$fpm_v-php-zip
+         php$fpm_v-php-mbstring php$fpm_v-php-bz2 php$fpm_v-php-pspell
+         php$fpm_v-php-imagick"
 	software="$software $fpm"
 fi
 
@@ -805,7 +806,7 @@ if [ "$sieve" = 'yes' ]; then
 	software="$software dovecot-pigeonhole"
 fi
 if [ "$mysql" = 'yes' ]; then
-	software="$software mariadb-server mariadb-client mysql"
+	software="$software MariaDB-server MariaDB-client mysql"
 fi
 if [ "$mysql8" = 'yes' ]; then
 	software="$software mysql-server mysql-client"
