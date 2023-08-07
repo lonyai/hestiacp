@@ -19,7 +19,7 @@ RHOST='rpm.hestiacp.com'
 VERSION=$ID
 HESTIA='/usr/local/hestia'
 #LOG="tee -a /root/hst_install_backups/hst_install-$(date +%d%m%Y%H%M).log"
-LOG='logger --tag hestia-install'
+LOG='logger --tag hestia'
 memory=$(grep 'MemTotal' /proc/meminfo | tr ' ' '\n' | grep [0-9])
 hst_backups="/root/hst_install_backups/$(date +%d%m%Y%H%M)"
 spinner="/-\|"
@@ -46,7 +46,7 @@ software="acl httpd awstats bash-completion bc bind ca-certificates crudini curl
   php-ldap php-mbstring php-mysql php-opcache php-pgsql php-pspell php-readline php-xml php-zip 
   postgresql pwgen quota rrdtool rsyslog sudo sysstat unzip util-linux vim wget whois zip zstd"
 
-installer_dependencies="ca-certificates curl gnupg2 openssl wget yum-utils"
+installer_dependencies="ca-certificates curl glibc-langpack-en gnupg2 openssl wget yum-utils"
 
 # Defining help function
 help() {
