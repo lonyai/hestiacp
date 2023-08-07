@@ -627,7 +627,7 @@ echo "Adding required repositories to proceed with installation:"
 echo
 
 # Installing EPEL repo
-if [ $version = "rhel" ] ; then
+if [ $VERSION = "rhel" ] ; then
 	subscription-manager repos --enable codeready-builder-for-rhel-9-$(arch)-rpms
 	dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
 else
@@ -660,9 +660,9 @@ echo "[ * ] PHP"
 yum -y install https://rpms.remirepo.net/enterprise/remi-release-$release.rpm > /dev/null 2>&1
 
 # Installing MariaDB repo
-if [ "$mysql" = 'yes' ]; then
+if [ "$mysql" == 'yes' ]; then
 	echo "[ * ] MariaDB"
-	if [ $version = "rhel" ] ; then
+	if [ "$VERSION" == "rhel" ] ; then
 		str=rhel
 	else
 		str=centos
