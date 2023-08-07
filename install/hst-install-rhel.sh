@@ -1134,20 +1134,14 @@ $HESTIA/bin/v-generate-ssl-cert $(hostname) '' 'US' 'California' \
 	'San Francisco' 'Hestia Control Panel' 'IT' > /tmp/hst.pem
 
 # Parsing certificate file
-crt_end=$(grep -n "END CERTIFICATE-" /tmp/hst.pem | cut -f 1 -d:)
-if [ "$release" = "22.04" ]; then
-	key_start=$(grep -n "BEGIN PRIVATE KEY" /tmp/hst.pem | cut -f 1 -d:)
-	key_end=$(grep -n "END PRIVATE KEY" /tmp/hst.pem | cut -f 1 -d:)
-else
-	key_start=$(grep -n "BEGIN RSA" /tmp/hst.pem | cut -f 1 -d:)
-	key_end=$(grep -n "END RSA" /tmp/hst.pem | cut -f 1 -d:)
-fi
+crt_end=$(grep -n "END CERTIFICATE-" /tmp/hst.pem | cut -f 1 -d: | tail -1)
+key_start=$(grep -Pn "BEGIN (RSA )?PRIVATE KEY" /tmp/hst.pem | cut -f 1 -d:)
+key_end=$(grep -Pn "END (RSA )?PRIVATE KEY" /tmp/hst.pem | cut -f 1 -d:)
 
 # Adding SSL certificate
 echo "[ * ] Adding SSL certificate to Hestia Control Panel..."
-cd $HESTIA/ssl
-sed -n "1,${crt_end}p" /tmp/hst.pem > certificate.crt
-sed -n "$key_start,${key_end}p" /tmp/hst.pem > certificate.key
+sed -n "1,${crt_end}p" /tmp/hst.pem > $HESTIA/ssl/certificate.crt
+sed -n "${key_start},${key_end}p" /tmp/hst.pem > $HESTIA/ssl/certificate.key
 chown root:mail $HESTIA/ssl/*
 chmod 660 $HESTIA/ssl/*
 rm /tmp/hst.pem
