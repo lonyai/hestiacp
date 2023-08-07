@@ -34,14 +34,14 @@ VERBOSE='no'
 # Define software versions
 HESTIA_INSTALL_VER='1.8.3'
 # Dependencies
-multiphp_v=("74" "80" "81" "82")
-fpm_v="81"
+multiphp_v=("7.4" "8.0" "8.1" "8.2")
+fpm_v="8.1"
 sysphp="8.2"
 mariadb_v="11.0"
 
 # Defining software pack for all distros
 software="acl awstats bash-completion bc bind ca-certificates crudini curl expect flex ftp gnupg2 
-  idn2 ImageMagick ipset jq mc openssl openssh-server
+  idn2 ImageMagick ipset jq mc nodejs openssl openssh-server
   php php-apcu php-cgi php-cli php-common php-curl php-gd php-imagick php-imap php-intl 
   php-ldap php-mbstring php-mysqlnd php-opcache php-pgsql php-pspell php-readline php-xml php-zip 
   postgresql pwgen quota rrdtool rsyslog sudo sysstat unzip util-linux vim wget whois zip zstd"
@@ -661,10 +661,13 @@ gpgkey=https://nginx.org/keys/nginx_signing.key
 module_hotfixes=true
 EOF
 
-# Installing sury PHP repo
+# Installing PHP repos
 echo "[ * ] PHP"
 yum -y install https://rpms.remirepo.net/enterprise/remi-release-$release.rpm > /dev/null 2>&1
 check_result $? "Package installation failed, check log file for more details."
+
+# Installing NodeJS repos
+yum module enable nodejs:18
 
 # Installing MariaDB repo
 if [ "$mysql" == 'yes' ]; then
@@ -775,12 +778,13 @@ mv -f /root/.my.cnf $hst_backups/mysql > /dev/null 2>&1
 #----------------------------------------------------------#
 
 if [ "$phpfpm" = 'yes' ]; then
+	fpm_v=${fpm_v/./}
 	fpm="php$fpm_v php$fpm_v-php php$fpm_v-php-common php$fpm_v-php-bcmath php$fpm_v-php-cli
          php$fpm_v-php-curl php$fpm_v-php-fpm php$fpm_v-php-gd php$fpm_v-php-intl
          php$fpm_v-php-soap php$fpm_v-php-xml php$fpm_v-php-zip php$fpm_v-php-mbstring 
 	 php$fpm_v-php-pspell php$fpm_v-php-imagick"
 	software="$software $fpm"
-	if [[ $fpm_v =~ 8.1|7.4 ]]; then
+	if [[ $fpm_v =~ 81|74 ]]; then
 	       software="$software php$fpm_v-php-ioncube-loader"
 	fi
 fi
@@ -826,9 +830,10 @@ fi
 if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
 	if [ "$multiphp" = 'yes' ]; then
 		for v in "${multiphp_v[@]}"; do
+			v=${v#/./}
 			software="$software php$v-php-mysqlnd"
-			if [[ $fpm_v =~ 8.1|7.4 ]]; then
-			       software="$software php$fpm_v-php-ioncube-loader"
+			if [[ $v =~ 81|74 ]]; then
+			       software="$software php$v-php-ioncube-loader"
 			fi
 		done
 	else
