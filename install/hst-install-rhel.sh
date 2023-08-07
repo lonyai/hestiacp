@@ -791,7 +791,7 @@ fi
 
 # Including packages
 if [ "$apache" = 'yes' ]; then
-	software="$software httpd"
+	software="$software httpd mod_ssl"
 fi
 if [ "$vsftpd" = 'yes' ]; then
 	software="$software vsftpd"
@@ -858,9 +858,6 @@ echo -ne "NOTE: This process may take 10 to 15 minutes to complete, please wait.
 echo
 yum -y install $software | $LOG
 check_result $? "Package installation failed, check log file for more details."
-
-# Check Installation result
-check_result $? "yum install failed"
 
 echo
 echo "========================================================================"
