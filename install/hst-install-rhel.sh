@@ -35,6 +35,7 @@ VERBOSE='no'
 HESTIA_INSTALL_VER='1.8.3'
 # Dependencies
 multiphp_v=("7.4" "8.0" "8.1" "8.2")
+fpm_v="8.1"
 sysphp="8.2"
 mariadb_v="10.11"
 
@@ -43,7 +44,7 @@ software="acl httpd awstats bash-completion bc bind ca-certificates crudini curl
   ftp gnupg2 idn2 ImageMagick ipset jq zip MariaDB-client mc openssl openssh-server
   php php-apcu php-bz2 php-cgi php-cli php-common php-curl php-gd php-imagick php-imap php-intl 
   php-ldap php-mbstring php-mysql php-opcache php-pgsql php-pspell php-readline php-xml php-zip 
-  postgresql-client pwgen quota rrdtool rsyslog setpriv sudo sysstat unzip vim wget whois zip zstd"
+  postgresql pwgen quota rrdtool rsyslog sudo sysstat unzip util-linux vim wget whois zip zstd"
 
 installer_dependencies="ca-certificates curl gnupg2 openssl wget yum-utils"
 
@@ -457,7 +458,7 @@ if [ "$phpfpm" = 'yes' ] && [ "$multiphp" = 'no' ]; then
 fi
 if [ "$multiphp" = 'yes' ]; then
 	phpfpm='yes'
-	echo '   - Multi-PHP Environment'
+	echo '   - Multi-PHP Environment (Currently just partially supprted on RHEL/CentOS)'
 fi
 
 # DNS stack
@@ -771,6 +772,7 @@ if [ "$phpfpm" = 'yes' ]; then
          php$fpm_v-php-mbstring php$fpm_v-php-bz2 php$fpm_v-php-pspell
          php$fpm_v-php-imagick"
 	software="$software $fpm"
+	[[ $fpm_v = "8.1" || $fpm_v = "7.4"]] && software="$software php$fpm_v-php-ioncube-loader"
 fi
 
 #----------------------------------------------------------#
@@ -816,6 +818,8 @@ if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
 	if [ "$multiphp" = 'yes' ]; then
 		for v in "${multiphp_v[@]}"; do
 			software="$software php$v-mysql php$v-bz2"
+			[[ $v = "8.1" || $v = "7.4"]] && software="$software php$fpm_v-php-ioncube-loader"
+
 		done
 	fi
 fi
