@@ -830,7 +830,7 @@ fi
 if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
 	if [ "$multiphp" = 'yes' ]; then
 		for v in "${multiphp_v[@]}"; do
-			v=${v#/./}
+			v=${v/./}
 			software="$software php$v-php-mysqlnd"
 			if [[ $v =~ 81|74 ]]; then
 			       software="$software php$v-php-ioncube-loader"
