@@ -791,7 +791,7 @@ if [ "$proftpd" = 'yes' ]; then
 	software="$software proftpd"
 fi
 if [ "$named" = 'yes' ]; then
-	software="$software  bind"
+	software="$software bind"
 fi
 if [ "$exim" = 'yes' ]; then
 	software="$software exim"
@@ -1531,16 +1531,16 @@ fi
 
 if [ "$named" = 'yes' ]; then
 	echo "[ * ] Configuring Bind DNS server..."
-	cp -f $HESTIA_INSTALL_DIR/bind/named.conf /etc/bind/
-	cp -f $HESTIA_INSTALL_DIR/bind/named.conf.options /etc/bind/
-	chown root:bind /etc/bind/named.conf
-	chown root:bind /etc/bind/named.conf.options
+	cp -f $HESTIA_INSTALL_DIR/bind/named.conf /etc/
+	cp -f $HESTIA_INSTALL_DIR/bind/named.conf.options /etc/
+	chown root:bind /etc/named.conf
+	chown root:bind /etc/named.conf.options
 	chown bind:bind /var/cache/bind
-	chmod 640 /etc/bind/named.conf
-	chmod 640 /etc/bind/named.conf.options
+	chmod 640 /etc/named.conf
+	chmod 640 /etc/named.conf.options
 	systemctl enable named > /dev/null 2>&1
 	systemctl start named
-	check_result $? "bind9 start failed"
+	check_result $? "named start failed"
 
 	# Workaround for OpenVZ/Virtuozzo
 	if [ -e "/proc/vz/veinfo" ] && [ -e "/etc/rc.local" ]; then
