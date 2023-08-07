@@ -724,8 +724,7 @@ mkdir -p $hst_backups/php/remi
 cp -r /etc/opt/remi/php* $hst_backups/php/remi/ > /dev/null 2>&1
 
 # Backup Bind configuration
-systemctl stop named :q
-sys> /dev/null 2>&1
+systemctl stop named > /dev/null 2>&1
 mkdir $hst_backups/bind
 cp -r /etc/named* $hst_backups/bind/ > /dev/null 2>&1
 
@@ -772,7 +771,7 @@ if [ "$phpfpm" = 'yes' ]; then
          php$fpm_v-php-mbstring php$fpm_v-php-bz2 php$fpm_v-php-pspell
          php$fpm_v-php-imagick"
 	software="$software $fpm"
-	[[ $fpm_v = "8.1" || $fpm_v = "7.4"]] && software="$software php$fpm_v-php-ioncube-loader"
+	[[ $fpm_v =~ "8.1|7.4"]] && software="$software php$fpm_v-php-ioncube-loader"
 fi
 
 #----------------------------------------------------------#
@@ -818,7 +817,7 @@ if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
 	if [ "$multiphp" = 'yes' ]; then
 		for v in "${multiphp_v[@]}"; do
 			software="$software php$v-mysql php$v-bz2"
-			[[ $v = "8.1" || $v = "7.4"]] && software="$software php$fpm_v-php-ioncube-loader"
+			[ $fpm_v =~ "8.1|7.4"]] && software="$software php$fpm_v-php-ioncube-loader"
 
 		done
 	fi
