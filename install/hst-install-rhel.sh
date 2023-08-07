@@ -628,10 +628,10 @@ echo
 # Installing EPEL repo
 if [ $VERSION = "rhel" ] ; then
 	subscription-manager repos --enable codeready-builder-for-rhel-9-$(arch)-rpms
-	dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+	yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
 else
 	yum config-manager --set-enabled crb
-	yum install epel-release epel-next-release
+	yum -y install epel-release epel-next-release
 fi
 
 # Installing Nginx repo
