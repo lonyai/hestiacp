@@ -848,20 +848,8 @@ echo "The installer is now downloading and installing all required packages."
 echo -ne "NOTE: This process may take 10 to 15 minutes to complete, please wait... "
 echo
 yum -y install $software | $LOG
-BACK_PID=$!
-
-## Check if package installation is done, print a spinner
-spin_i=1
-while kill -0 $BACK_PID > /dev/null 2>&1; do
-	printf "\b${spinner:spin_i++%${#spinner}:1}"
-	sleep 0.5
-done
-
-# Do a blank echo to get the \n back
-echo
 
 # Check Installation result
-wait $BACK_PID
 check_result $? "yum install failed"
 
 echo
@@ -1533,9 +1521,9 @@ if [ "$named" = 'yes' ]; then
 	echo "[ * ] Configuring Bind DNS server..."
 	cp -f $HESTIA_INSTALL_DIR/bind/named.conf /etc/
 	cp -f $HESTIA_INSTALL_DIR/bind/named.conf.options /etc/
-	chown root:bind /etc/named.conf
-	chown root:bind /etc/named.conf.options
-	chown bind:bind /var/cache/bind
+	chown root:named /etc/named.conf
+	chown root:named /etc/named.conf.options
+	chown named:named /var/cache/bind
 	chmod 640 /etc/named.conf
 	chmod 640 /etc/named.conf.options
 	systemctl enable named > /dev/null 2>&1
