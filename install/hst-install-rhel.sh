@@ -41,7 +41,7 @@ mariadb_v="11.0"
 
 # Defining software pack for all distros
 software="acl httpd awstats bash-completion bc bind ca-certificates crudini curl expect flex 
-  ftp gnupg2 idn2 ImageMagick ipset jq zip MariaDB-client mc openssl openssh-server
+  ftp gnupg2 idn2 ImageMagick ipset jq zip MariaDB-client MariaDB-client-compat mc openssl openssh-server
   php php-apcu php-bz2 php-cgi php-cli php-common php-curl php-gd php-imagick php-imap php-intl 
   php-ldap php-mbstring php-mysql php-opcache php-pgsql php-pspell php-readline php-xml php-zip 
   postgresql pwgen quota rrdtool rsyslog sudo sysstat unzip util-linux vim wget whois zip zstd"
@@ -809,13 +809,13 @@ if [ "$sieve" = 'yes' ]; then
 	software="$software dovecot-pigeonhole"
 fi
 if [ "$mysql" = 'yes' ]; then
-	software="$software MariaDB-server MariaDB-client mysql"
+	software="$software MariaDB-server MariaDB-server-compat"
 fi
 if [ "$mysql8" = 'yes' ]; then
 	software="$software mysql-server mysql-client"
 fi
 if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
-	software=$(echo "$software php$fpm_v-mysql"
+	software="$software php$fpm_v-mysql"
 	if [ "$multiphp" = 'yes' ]; then
 		for v in "${multiphp_v[@]}"; do
 			software="$software php$v-mysql php$v-bz2"
@@ -829,7 +829,7 @@ if [ "$postgresql" = 'yes' ]; then
 	software="$software postgresql php$fpm_v-pgsql"
 fi
 if [ "$fail2ban" = 'yes' ]; then
-	software="$software fail2ban fail2ban-firewalld")
+	software="$software fail2ban fail2ban-firewalld"
 fi
 if [ "$phpfpm" = 'yes' ]; then
 	software="$software"
