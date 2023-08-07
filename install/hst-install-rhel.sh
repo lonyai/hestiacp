@@ -34,10 +34,10 @@ VERBOSE='no'
 # Define software versions
 HESTIA_INSTALL_VER='1.8.3'
 # Dependencies
-multiphp_v=("7.4" "8.0" "8.1" "8.2")
-fpm_v="8.1"
+multiphp_v=("74" "80" "81" "82")
+fpm_v="81"
 sysphp="8.2"
-mariadb_v="10.11"
+mariadb_v="11.0"
 
 # Defining software pack for all distros
 software="acl httpd awstats bash-completion bc bind ca-certificates crudini curl expect flex 
@@ -683,7 +683,7 @@ if [ "$postgresql" = 'yes' ]; then
 	yum -y module enable postgresql | $LOG
 fi
 
-yum -y module enable php:remi-8.2
+yum -y module enable php:remi-$sysphp
 
 # Echo for a new line
 echo
