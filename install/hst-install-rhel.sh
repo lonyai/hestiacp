@@ -40,8 +40,8 @@ sysphp="8.2"
 mariadb_v="11.0"
 
 # Defining software pack for all distros
-software="acl httpd awstats bash-completion bc bind ca-certificates crudini curl expect flex 
-  ftp gnupg2 idn2 ImageMagick ipset jq zip MariaDB-client MariaDB-client-compat mc openssl openssh-server
+software="acl awstats bash-completion bc bind ca-certificates crudini curl expect flex ftp gnupg2 
+  idn2 ImageMagick ipset jq zip MariaDB-client MariaDB-client-compat mc openssl openssh-server
   php php-apcu php-bz2 php-cgi php-cli php-common php-curl php-gd php-imagick php-imap php-intl 
   php-ldap php-mbstring php-mysql php-opcache php-pgsql php-pspell php-readline php-xml php-zip 
   postgresql pwgen quota rrdtool rsyslog sudo sysstat unzip util-linux vim wget whois zip zstd"
