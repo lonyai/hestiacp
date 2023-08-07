@@ -44,9 +44,9 @@ software="acl awstats bash-completion bc bind ca-certificates crudini curl expec
   idn2 ImageMagick ipset jq zip MariaDB-client MariaDB-client-compat mc openssl openssh-server
   php php-apcu php-cgi php-cli php-common php-curl php-gd php-imagick php-imap php-intl 
   php-ldap php-mbstring php-mysqlnd php-opcache php-pgsql php-pspell php-readline php-xml php-zip 
-  postgresql pwgen quota rrdtool rsyslog sudo sysstat unzip util-linux vim wget whois zip zstd"
+  postgresql pwgen quota rngd rrdtool rsyslog sudo sysstat unzip util-linux vim wget whois zip zstd"
 
-installer_dependencies="ca-certificates curl glibc-langpack-en gnupg2 openssl rngd wget yum-utils"
+installer_dependencies="ca-certificates curl glibc-langpack-en gnupg2 openssl wget yum-utils"
 
 # Defining help function
 help() {
@@ -357,9 +357,6 @@ mkdir -p "$hst_backups"
 echo "[ * ] Installing dependencies..."
 yum -y install $installer_dependencies | $LOG
 check_result $? "Package installation failed, check log file for more details."
-
-systemctl enable rngd
-systemctl start rngd
 
 ## Check repository availability
 #wget --quiet "https://$RHOST" -O /dev/null
@@ -701,6 +698,9 @@ echo
 echo -ne "Updating currently installed packages, please wait... "
 yum -y upgrade | $LOG
 check_result $? "Package installation failed, check log file for more details."
+
+systemctl enable rngd
+systemctl start rngd
 
 # Start install dhparam.pem
 openssl dhparam -out /etc/pki/tls/dhparm.pem 4096 >/dev/null 2>&1 &
