@@ -1569,6 +1569,7 @@ if [ "$exim" = 'yes' ]; then
 	fi
 	if [ "$clamd" = 'yes' ]; then
 		sed -i "s/#CLAMD/CLAMD/g" /etc/exim/exim.conf.template
+		gpasswd -a exim virusgroup
 	fi
 
 	# Generate SRS KEY If not support just created it will get ignored anyway
