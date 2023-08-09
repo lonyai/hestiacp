@@ -187,7 +187,7 @@ validate_email() {
 version_ge() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1" -o -n "$1" -a "$1" = "$2"; }
 
 h_semanage() {
-	if [ "$(semanage $1 -l | grep \"$*\")" = "" ]; then
+	if [ "$(semanage $1 -l | grep \"$#\")" = "" ]; then
 		semanage $@
 	else
 		semanage ${@/ -a / -m }
@@ -1263,8 +1263,8 @@ check_result $? "nginx start failed"
 #----------------------------------------------------------#
 
 h_semanage port -a -t http_port_t -p tcp 8081
-semanage fcontext -a -e /home/*/web /var/www
-h_semanage fcontext -a -t httpd_sys_content_t "/home/*/web/*/public_*(/.*)?"
+semanage fcontext -a -e "/home/*/web" "/var/www"
+#h_semanage fcontext -a -t httpd_sys_content_t '/home/*/web/*/public_*(/.*)?'
 restorecon -R -v /home/*/web/*/public_*
 if [ "$apache" = 'yes' ]; then
 	echo "[ * ] Configuring Apache Web Server..."
@@ -1548,7 +1548,7 @@ fi
 #                      Configure Bind                      #
 #----------------------------------------------------------#
 
-semanage fcontext -a -e /home/*/conf/dns /etc/named
+semanage fcontext -a -e "/home/*/conf/dns" "/etc/named"
 if [ "$named" = 'yes' ]; then
 	echo "[ * ] Configuring Bind DNS server..."
 	cp -f $HESTIA_INSTALL_DIR/bind/named.conf /etc/
@@ -1574,8 +1574,8 @@ fi
 
 if [ "$exim" = 'yes' ]; then
 	echo "[ * ] Configuring Exim mail server..."
-	#h_semanage fcontext -a -t exim_var_lib_t "/home/*/mail/*(/.*)?"
-	semanage fcontext -a -e /home/*/mail /var/mail
+	#h_semanage fcontext -a -t exim_var_lib_t '/home/*/mail/*(/.*)?'
+	semanage fcontext -a -e "/home/*/mail" "/var/mail"
 	restorecon -R -v /home/*/mail
 
 	gpasswd -a exim mail > /dev/null 2>&1
