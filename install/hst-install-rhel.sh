@@ -859,6 +859,10 @@ if [ "$phpfpm" = 'yes' ]; then
 	software="$software"
 fi
 
+if [ $sysphp =~ 8.1|7.4 ]; then
+       software="$software php${sysphp/./}-php-ioncube-loader"
+fi
+
 #----------------------------------------------------------#
 #                     Install packages                     #
 #----------------------------------------------------------#
