@@ -187,7 +187,11 @@ validate_email() {
 version_ge() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1" -o -n "$1" -a "$1" = "$2"; }
 
 h_semanage() {
-	semanage $@ || semanage ${@/ -a / -m }
+	if [ "$(semanage $1 -l | grep \"$*\")" = "" ]; then
+		semanage $@
+	else
+		semanage ${@/ -a / -m }
+	fi
 }
 
 #----------------------------------------------------------#
@@ -1764,6 +1768,9 @@ if [ "$sieve" = 'yes' ]; then
 		sed -i "s/\"archive\"/\"archive\", \"managesieve\"/g" $RC_CONFIG_DIR/config.inc.php
 	fi
 
+	h_semanage fcontext -a -t exim_var_lib_t "/home/*/mail/*(/.*)?"
+	restorecon -R -v /home/*/mail
+
 	# Restart Dovecot and exim4
 	systemctl restart dovecot > /dev/null 2>&1
 	systemctl restart exim > /dev/null 2>&1
@@ -1877,6 +1884,8 @@ if [ "$apache" = 'yes' ] && [ "$nginx" = 'yes' ]; then
 	echo "</IfModule>" >> /etc/httpd/modules/remoteip.conf
 	sed -i "s/LogFormat \"%h/LogFormat \"%a/g" /etc/httpd/conf/httpd.conf
 	h_semanage port -a -t http_port_t -p tcp 8081
+	h_semanage fcontext -a -t httpd_sys_content_t "/home/*/web/*/public_*(/.*)?"
+	restorecon -R -v /home/*/web/*/public_*
 	systemctl restart httpd
 fi
 
