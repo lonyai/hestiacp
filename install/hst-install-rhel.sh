@@ -187,7 +187,7 @@ validate_email() {
 version_ge() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1" -o -n "$1" -a "$1" = "$2"; }
 
 h_semanage() {
-	if [ "$(semanage $1 -l | grep \"$#\")" = "" ]; then
+	if [ "$(semanage $1 -l | grep \"${$#}\")" = "" ]; then
 		semanage $@
 	else
 		semanage ${@/ -a / -m }
@@ -847,9 +847,10 @@ if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
 	else
 		software="$software php$fpm_v-php-mysqlnd"
 	fi
+	software="$software mysql-selinux"
 fi
 if [ "$postgresql" = 'yes' ]; then
-	software="$software postgresql php$fpm_v-php-pgsql"
+	software="$software postgresql postgresql-server php$fpm_v-php-pgsql"
 fi
 if [ "$fail2ban" = 'yes' ]; then
 	software="$software fail2ban fail2ban-firewalld"
@@ -1711,6 +1712,10 @@ EOF
 		echo "[proftpd]" >> /etc/fail2ban/jail.local
 		echo "enabled = true" >> /etc/fail2ban/jail.local
 	fi
+
+	semanage module -e fail2ban -P 200
+	# TODO!!!
+	semanage permissive -a fail2ban_t
 
 	systemctl enable fail2ban > /dev/null 2>&1
 	systemctl start fail2ban | $LOG
