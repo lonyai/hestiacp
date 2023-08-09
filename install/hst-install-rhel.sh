@@ -1262,6 +1262,10 @@ check_result $? "nginx start failed"
 #                    Configure Apache                      #
 #----------------------------------------------------------#
 
+h_semanage port -a -t http_port_t -p tcp 8081
+semanage fcontext -a -e /home/*/web /var/www
+h_semanage fcontext -a -t httpd_sys_content_t "/home/*/web/*/public_*(/.*)?"
+restorecon -R -v /home/*/web/*/public_*
 if [ "$apache" = 'yes' ]; then
 	echo "[ * ] Configuring Apache Web Server..."
 
@@ -1349,6 +1353,9 @@ if [ "$vsftpd" = 'yes' ]; then
 	touch /var/log/xferlog
 	chown root:adm /var/log/xferlog
 	chmod 640 /var/log/xferlog
+	
+	semanage boolean -m --on ftpd_full_access
+
 	systemctl enable vsftpd > /dev/null 2>&1
 	systemctl start vsftpd | $LOG
 	check_result $? "vsftpd start failed"
@@ -1363,6 +1370,8 @@ if [ "$proftpd" = 'yes' ]; then
 	[[ -z $(grep -i "$servername" /etc/hosts) ]] && echo "127.0.0.1 $servername" >> /etc/hosts
 	cp -f $HESTIA_INSTALL_DIR/proftpd/proftpd.conf /etc/proftpd/
 	cp -f $HESTIA_INSTALL_DIR/proftpd/tls.conf /etc/proftpd/
+
+	semanage boolean -m --on ftpd_full_access
 
 	systemctl enable proftpd > /dev/null 2>&1
 	systemctl start proftpd | $LOG
@@ -1535,6 +1544,7 @@ fi
 #                      Configure Bind                      #
 #----------------------------------------------------------#
 
+semanage fcontext -a -e /home/*/conf/dns /etc/named
 if [ "$named" = 'yes' ]; then
 	echo "[ * ] Configuring Bind DNS server..."
 	cp -f $HESTIA_INSTALL_DIR/bind/named.conf /etc/
@@ -1560,6 +1570,10 @@ fi
 
 if [ "$exim" = 'yes' ]; then
 	echo "[ * ] Configuring Exim mail server..."
+	#h_semanage fcontext -a -t exim_var_lib_t "/home/*/mail/*(/.*)?"
+	semanage fcontext -a -e /home/*/mail /var/mail
+	restorecon -R -v /home/*/mail
+
 	gpasswd -a exim mail > /dev/null 2>&1
 	exim_version=$(exim --version 2>/dev/null | head -1 | awk '{print $3}' | cut -f -2 -d .)
 	# if Exim version > 4.9.4 or greater!
@@ -1593,18 +1607,11 @@ if [ "$exim" = 'yes' ]; then
 	rm -rf /etc/exim/domains
 	mkdir -p /etc/exim/domains
 
-	h_semanage fcontext -a -t exim_var_lib_t "/home/*/mail/*(/.*)?"
-	restorecon -R -v /home/*/mail
-
 	#rm -f /etc/alternatives/mta
 	#ln -s /usr/sbin/exim4 /etc/alternatives/mta
 	systemctl enable exim > /dev/null 2>&1
 	systemctl start exim | $LOG
 	check_result $? "exim4 start failed"
-else
-	h_semanage fcontext -a -t postfix_data_t "/home/*/mail/*(/.*)?"
-	restorecon -R -v /home/*/mail
-
 fi
 
 #----------------------------------------------------------#
@@ -1887,9 +1894,6 @@ if [ "$apache" = 'yes' ] && [ "$nginx" = 'yes' ]; then
 	fi
 	echo "</IfModule>" >> /etc/httpd/modules/remoteip.conf
 	sed -i "s/LogFormat \"%h/LogFormat \"%a/g" /etc/httpd/conf/httpd.conf
-	h_semanage port -a -t http_port_t -p tcp 8081
-	h_semanage fcontext -a -t httpd_sys_content_t "/home/*/web/*/public_*(/.*)?"
-	restorecon -R -v /home/*/web/*/public_*
 	systemctl restart httpd
 fi
 
