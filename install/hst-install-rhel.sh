@@ -187,11 +187,11 @@ validate_email() {
 version_ge() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1" -o -n "$1" -a "$1" = "$2"; }
 
 h_semanage() {
-	if [ "$(semanage $1 -l | grep \"${$#}\")" = "" ]; then
-		semanage $@
-	else
-		semanage ${@/ -a / -m }
-	fi
+	if [ "$(semanage $1 -l | grep ${!#})" = "" ]; then
+                semanage $@
+        else
+                echo $@ | sed 's/ -a / -m /' | xargs semanage
+        fi
 }
 
 #----------------------------------------------------------#
