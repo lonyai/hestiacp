@@ -127,7 +127,9 @@ user_exec chmod 751 $HOMEDIR/$user/web/$domain/*
 user_exec chmod 551 $HOMEDIR/$user/web/$domain/stats $HOMEDIR/$user/web/$domain/logs
 user_exec chmod 644 $HOMEDIR/$user/web/$domain/public_*html/*
 user_exec chmod 551 $HOMEDIR/$user/web/$domain
-chown --no-dereference $user:www-data $HOMEDIR/$user/web/$domain/public_*html
+if [ ! -e /etc/system-release ]; then
+	chown --no-dereference $user:www-data $HOMEDIR/$user/web/$domain/public_*html
+fi
 
 # Adding PHP-FPM backend
 if [ -n "$WEB_BACKEND" ]; then

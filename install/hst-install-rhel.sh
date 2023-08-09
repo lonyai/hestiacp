@@ -42,7 +42,7 @@ mariadb_v="11.0"
 # Defining software pack for all distros
 software="acl awstats bash-completion bc bind ca-certificates crudini curl expect flex ftp gnupg2 
   idn2 ImageMagick ipset jq mc nodejs openssl openssh-server
-  php php-apcu php-cgi php-cli php-common php-curl php-gd php-imagick php-imap php-intl 
+  php php-apcu php-cgi php-cli php-common php-curl php-gd php-fpm php-imagick php-imap php-intl 
   php-ldap php-mbstring php-mysqlnd php-opcache php-pgsql php-pspell php-readline php-xml php-zip 
   postgresql pwgen quota rrdtool rsyslog sudo sysstat unzip util-linux vim wget whois zip zstd"
 
@@ -185,6 +185,10 @@ validate_email() {
 }
 
 version_ge() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1" -o -n "$1" -a "$1" = "$2"; }
+
+h_semanage() {
+	semanage $@ || semanage ${@/ -a / -m }
+}
 
 #----------------------------------------------------------#
 #                    Verifications                         #
@@ -782,7 +786,7 @@ if [ "$phpfpm" = 'yes' ]; then
 	fpm="php$fpm_v php$fpm_v-php php$fpm_v-php-common php$fpm_v-php-bcmath php$fpm_v-php-cli
          php$fpm_v-php-curl php$fpm_v-php-fpm php$fpm_v-php-gd php$fpm_v-php-intl
          php$fpm_v-php-soap php$fpm_v-php-xml php$fpm_v-php-zip php$fpm_v-php-mbstring 
-	 php$fpm_v-php-pspell php$fpm_v-php-imagick"
+	 php$fpm_v-php-pspell php$fpm_v-php-imagick php$fpm_v-php-fpm"
 	software="$software $fpm"
 	if [[ $fpm_v =~ 81|74 ]]; then
 	       software="$software php$fpm_v-php-ioncube-loader"
@@ -1288,6 +1292,9 @@ if [ "$phpfpm" = "yes" ]; then
 	if [ "$multiphp" = 'yes' ]; then
 		for v in "${multiphp_v[@]}"; do
 			echo "[ * ] Installing PHP $v..."
+			ln -s /etc/opt/remi/php${v/./} /etc/php/$v
+			mkdir -p /etc/php/$v/{fpm,cli}
+			ln -s /etc/opt/remi/php${v/./}/php-fpm.d /etc/php/$v/fpm/pool.d
 			$HESTIA/bin/v-add-web-php "$v" > /dev/null 2>&1
 		done
 	else
@@ -1300,7 +1307,7 @@ if [ "$phpfpm" = "yes" ]; then
 	cp -f $HESTIA_INSTALL_DIR/php-fpm/www.conf /etc/opt/remi/php$fpm_v/php-fpm.d/www.conf
 	systemctl enable php$fpm_v-php-fpm > /dev/null 2>&1
 	systemctl start php$fpm_v-php-fpm | $LOG
-	check_result $? "php-fpm start failed"
+	check_result $? "php$fpm_v-php-fpm start failed"
 	# Set default php version to $fpm_v
 	#update-alternatives --set php /usr/bin/php$fpm_v > /dev/null 2>&1
 fi
@@ -1869,6 +1876,7 @@ if [ "$apache" = 'yes' ] && [ "$nginx" = 'yes' ]; then
 	fi
 	echo "</IfModule>" >> /etc/httpd/modules/remoteip.conf
 	sed -i "s/LogFormat \"%h/LogFormat \"%a/g" /etc/httpd/conf/httpd.conf
+	h_semanage port -a -t http_port_t -p tcp 8081
 	systemctl restart httpd
 fi
 
