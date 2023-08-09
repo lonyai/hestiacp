@@ -1593,11 +1593,18 @@ if [ "$exim" = 'yes' ]; then
 	rm -rf /etc/exim/domains
 	mkdir -p /etc/exim/domains
 
+	h_semanage fcontext -a -t exim_var_lib_t "/home/*/mail/*(/.*)?"
+	restorecon -R -v /home/*/mail
+
 	#rm -f /etc/alternatives/mta
 	#ln -s /usr/sbin/exim4 /etc/alternatives/mta
 	systemctl enable exim > /dev/null 2>&1
 	systemctl start exim | $LOG
 	check_result $? "exim4 start failed"
+else
+	h_semanage fcontext -a -t postfix_data_t "/home/*/mail/*(/.*)?"
+	restorecon -R -v /home/*/mail
+
 fi
 
 #----------------------------------------------------------#
@@ -1767,9 +1774,6 @@ if [ "$sieve" = 'yes' ]; then
 		chmod 644 $RC_CONFIG_DIR/plugins/managesieve/config.inc.php
 		sed -i "s/\"archive\"/\"archive\", \"managesieve\"/g" $RC_CONFIG_DIR/config.inc.php
 	fi
-
-	h_semanage fcontext -a -t exim_var_lib_t "/home/*/mail/*(/.*)?"
-	restorecon -R -v /home/*/mail
 
 	# Restart Dovecot and exim4
 	systemctl restart dovecot > /dev/null 2>&1
