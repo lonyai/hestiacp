@@ -1355,6 +1355,8 @@ if [ "$vsftpd" = 'yes' ]; then
 	chmod 640 /var/log/xferlog
 	
 	semanage boolean -m --on ftpd_full_access
+	semanage boolean -m --on ftpd_connect_all_unreserved
+	semanage boolean -m --on ftpd_connect_db
 
 	systemctl enable vsftpd > /dev/null 2>&1
 	systemctl start vsftpd | $LOG
@@ -1372,6 +1374,8 @@ if [ "$proftpd" = 'yes' ]; then
 	cp -f $HESTIA_INSTALL_DIR/proftpd/tls.conf /etc/proftpd/
 
 	semanage boolean -m --on ftpd_full_access
+	semanage boolean -m --on ftpd_connect_all_unreserved
+	semanage boolean -m --on ftpd_connect_db
 
 	systemctl enable proftpd > /dev/null 2>&1
 	systemctl start proftpd | $LOG
