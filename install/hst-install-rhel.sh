@@ -1312,31 +1312,34 @@ if [ "$phpfpm" = "yes" ]; then
 			ln -s /etc/opt/remi/php${v/./} /etc/php/$v
 			mkdir -p /etc/php/$v/{fpm,cli}
 			ln -s /etc/opt/remi/php${v/./}/php-fpm.d /etc/php/$v/fpm/pool.d
+			sed "s/%VERSION%/php${v/./}/" $HESTIA_INSTALL_DIR/php-fpm/www.conf > /etc/opt/remi/php$fpm_v/php-fpm.d/www.conf
 			$HESTIA/bin/v-add-web-php "$v" > /dev/null 2>&1
+			systemctl enable php${v/./}-php-fpm > /dev/null 2>&1
+			systemctl start php${v/./}-php-fpm | $LOG
+			check_result $? "php${v/./}-php-fpm start failed"
 		done
 	else
 		echo "[ * ] Installing PHP $fpm_v..."
-		$HESTIA/bin/v-add-web-php "$fpm_v" > /dev/null 2>&1
+		v=$fpm_v
+		ln -s /etc/opt/remi/php${v/./} /etc/php/$v
+		mkdir -p /etc/php/$v/{fpm,cli}
+		ln -s /etc/opt/remi/php${v/./}/php-fpm.d /etc/php/$v/fpm/pool.d
+		sed "s/%VERSION%/php${v/./}/" $HESTIA_INSTALL_DIR/php-fpm/www.conf > /etc/opt/remi/php$fpm_v/php-fpm.d/www.conf
+		$HESTIA/bin/v-add-web-php "$v" > /dev/null 2>&1
+		systemctl enable php${v/./}-php-fpm > /dev/null 2>&1
+		systemctl start php${v/./}-php-fpm | $LOG
+		check_result $? "php${v/./}-php-fpm start failed"
 	fi
-
-	echo "[ * ] Configuring PHP-FPM $fpm_v..."
-	# Create www.conf for webmail and php(*)admin
-	cp -f $HESTIA_INSTALL_DIR/php-fpm/www.conf /etc/opt/remi/php$fpm_v/php-fpm.d/www.conf
-	systemctl enable php$fpm_v-php-fpm > /dev/null 2>&1
-	systemctl start php$fpm_v-php-fpm | $LOG
-	check_result $? "php$fpm_v-php-fpm start failed"
-	# Set default php version to $fpm_v
-	#update-alternatives --set php /usr/bin/php$fpm_v > /dev/null 2>&1
 fi
 
-mkdir -p /etc/php/php-fpm/{fpm,cli}
-ln -s /etc/php-fpm.d /etc/php/php-fpm/fpm/pool.d
-
 #----------------------------------------------------------#
-#                     Configure PHP                        #
+#                     Configure system's PHP               #
 #----------------------------------------------------------#
 
 echo "[ * ] Configuring PHP..."
+mkdir -p /etc/php/php-fpm/{fpm,cli}
+ln -s /etc/php-fpm.d /etc/php/php-fpm/fpm/pool.d
+
 ZONE=$(timedatectl > /dev/null 2>&1 | grep Time zone | awk '{print $3}')
 if [ -z "$ZONE" ]; then
 	ZONE='UTC'
@@ -1351,6 +1354,10 @@ echo '#!/bin/sh' > /etc/cron.daily/php-session-cleanup
 echo "find -O3 /home/*/tmp/ -ignore_readdir_race -depth -mindepth 1 -name 'sess_*' -type f -cmin '+10080' -delete > /dev/null 2>&1" >> /etc/cron.daily/php-session-cleanup
 echo "find -O3 $HESTIA/data/sessions/ -ignore_readdir_race -depth -mindepth 1 -name 'sess_*' -type f -cmin '+10080' -delete > /dev/null 2>&1" >> /etc/cron.daily/php-session-cleanup
 chmod 755 /etc/cron.daily/php-session-cleanup
+
+systemctl enable php-fpm > /dev/null 2>&1
+systemctl start php-fpm | $LOG
+check_result $? "php-fpm start failed"
 
 #----------------------------------------------------------#
 #                    Configure Vsftpd                      #
