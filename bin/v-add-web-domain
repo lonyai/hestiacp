@@ -127,7 +127,7 @@ user_exec chmod 751 $HOMEDIR/$user/web/$domain/*
 user_exec chmod 551 $HOMEDIR/$user/web/$domain/stats $HOMEDIR/$user/web/$domain/logs
 user_exec chmod 644 $HOMEDIR/$user/web/$domain/public_*html/*
 user_exec chmod 551 $HOMEDIR/$user/web/$domain
-if [ ! -e /etc/system-release ]; then
+if [ ! -e /etc/redhat-release ]; then
 	chown --no-dereference $user:www-data $HOMEDIR/$user/web/$domain/public_*html
 fi
 
