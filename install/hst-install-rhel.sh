@@ -1325,6 +1325,10 @@ if [ "$phpfpm" = "yes" ]; then
 	#update-alternatives --set php /usr/bin/php$fpm_v > /dev/null 2>&1
 fi
 
+ln -s /etc /etc/php/php-fpm
+mkdir -p /etc/php-fpm/{fpm,cli}
+ln -s /etc/php-fpm.d /etc/php-fpm/fpm/pool.d
+
 #----------------------------------------------------------#
 #                     Configure PHP                        #
 #----------------------------------------------------------#
