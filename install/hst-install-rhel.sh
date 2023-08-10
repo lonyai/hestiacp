@@ -785,21 +785,45 @@ mv -f /root/.my.cnf $hst_backups/mysql > /dev/null 2>&1
 #                     Package Includes                     #
 #----------------------------------------------------------#
 
+if [ $sysphp =~ 8.1|7.4 ]; then
+       software="$software php${sysphp/./}-php-ioncube-loader"
+fi
 if [ "$phpfpm" = 'yes' ]; then
-	fpm_v=${fpm_v/./}
-	fpm="php$fpm_v php$fpm_v-php php$fpm_v-php-common php$fpm_v-php-bcmath php$fpm_v-php-cli
-         php$fpm_v-php-curl php$fpm_v-php-fpm php$fpm_v-php-gd php$fpm_v-php-intl
-         php$fpm_v-php-soap php$fpm_v-php-xml php$fpm_v-php-zip php$fpm_v-php-mbstring 
-	 php$fpm_v-php-pspell php$fpm_v-php-imagick php$fpm_v-php-fpm"
+	v=${fpm_v/./}
+	fpm="php$v php$fpm_v-php php$v-php-common php$v-php-bcmath php$v-php-cli
+             php$v-php-curl php$v-php-fpm php$v-php-gd php$v-php-intl
+             php$v-php-soap php$v-php-xml php$v-php-zip php$v-php-mbstring 
+	     php$v-php-pspell php$v-php-imagick php$v-php-fpm"
 	software="$software $fpm"
-	if [[ $fpm_v =~ 81|74 ]]; then
-	       software="$software php$fpm_v-php-ioncube-loader"
+	if [[ $v =~ 81|74 ]]; then
+	       software="$software php$v-php-ioncube-loader"
+	fi
+	if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
+		software="$software php$v-php-mysqlnd"
+	fi
+	if [ "$postgresql" = 'yes' ]; then
+		software="$software php$v-php-pgsql"
 	fi
 fi
-
-#----------------------------------------------------------#
-#                     Package Includes                     #
-#----------------------------------------------------------#
+if [ "$multiphp" = 'yes' ]; then
+	for v in "${multiphp_v[@]}"; do
+		v=${v/./}
+        	fpm="php$v php$v-php php$v-php-common php$v-php-bcmath php$v-php-cli
+		     php$v-php-curl php$v-php-fpm php$v-php-gd php$v-php-intl
+		     php$v-php-soap php$v-php-xml php$v-php-zip php$v-php-mbstring
+		     php$v-php-pspell php$v-php-imagick php$v-php-fpm"
+		software="$software $fpm"
+		if [[ $v =~ 81|74 ]]; then
+	               software="$software php$v-php-ioncube-loader"
+	        fi
+		if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
+			software="$software php$v-php-mysqlnd"
+		fi
+		if [ "$postgresql" = 'yes' ]; then
+			software="$software php$v-php-pgsql"
+		fi
+	done
+fi
 
 # Including packages
 if [ "$apache" = 'yes' ]; then
@@ -818,7 +842,7 @@ if [ "$exim" = 'yes' ]; then
 	software="$software exim"
 fi
 if [ "$clamd" = 'yes' ]; then
-	software="$software clamd clamav"
+	software="$software clamd clamav clamav-update"
 fi
 if [ "$spamd" = 'yes' ]; then
 	software="$software spamassassin"
@@ -830,37 +854,17 @@ if [ "$sieve" = 'yes' ]; then
 	software="$software dovecot-pigeonhole"
 fi
 if [ "$mysql" = 'yes' ]; then
-	software="$software MariaDB-client MariaDB-client-compat MariaDB-server MariaDB-server-compat"
+	software="$software MariaDB-client MariaDB-client-compat MariaDB-server MariaDB-server-compat
+	          mysql-selinux"
 fi
 if [ "$mysql8" = 'yes' ]; then
-	software="$software mysql-server mysql-client"
-fi
-if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
-	if [ "$multiphp" = 'yes' ]; then
-		for v in "${multiphp_v[@]}"; do
-			v=${v/./}
-			software="$software php$v-php-mysqlnd"
-			if [[ $v =~ 81|74 ]]; then
-			       software="$software php$v-php-ioncube-loader"
-			fi
-		done
-	else
-		software="$software php$fpm_v-php-mysqlnd"
-	fi
-	software="$software mysql-selinux"
+	software="$software mysql-server mysql-client mysql-selinux"
 fi
 if [ "$postgresql" = 'yes' ]; then
-	software="$software postgresql postgresql-server php$fpm_v-php-pgsql"
+	software="$software postgresql-server postgreql"
 fi
 if [ "$fail2ban" = 'yes' ]; then
 	software="$software fail2ban fail2ban-firewalld"
-fi
-if [ "$phpfpm" = 'yes' ]; then
-	software="$software"
-fi
-
-if [ $sysphp =~ 8.1|7.4 ]; then
-       software="$software php${sysphp/./}-php-ioncube-loader"
 fi
 
 #----------------------------------------------------------#
@@ -1950,7 +1954,7 @@ cat > /etc/cron.daily/hestia-autoupdate.sh <<EOF
 #!/bin/bash
 . /etc/profile.d/hestia.sh
 cd $HESTIA
-git fetch
+git pull 
 systemctl restart hestia hestia-php hestia-nginx
 EOF
 
