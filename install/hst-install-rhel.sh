@@ -790,7 +790,7 @@ if [ $sysphp =~ 8.1|7.4 ]; then
 fi
 if [ "$phpfpm" = 'yes' ]; then
 	v=${fpm_v/./}
-	fpm="php$v php$fpm_v-php php$v-php-common php$v-php-bcmath php$v-php-cli
+	fpm="php$v php$v-php php$v-php-common php$v-php-bcmath php$v-php-cli
              php$v-php-curl php$v-php-fpm php$v-php-gd php$v-php-intl
              php$v-php-soap php$v-php-xml php$v-php-zip php$v-php-mbstring 
 	     php$v-php-pspell php$v-php-imagick php$v-php-fpm"
@@ -855,13 +855,13 @@ if [ "$sieve" = 'yes' ]; then
 fi
 if [ "$mysql" = 'yes' ]; then
 	software="$software MariaDB-client MariaDB-client-compat MariaDB-server MariaDB-server-compat
-	          mysql-selinux"
+	          mysql-selinux php${sysphp/./}-php-mysqlnd"
 fi
 if [ "$mysql8" = 'yes' ]; then
-	software="$software mysql-server mysql-client mysql-selinux"
+	software="$software mysql-server mysql-client mysql-selinux php${sysphp/./}-php-mysqlnd"
 fi
 if [ "$postgresql" = 'yes' ]; then
-	software="$software postgresql-server postgreql"
+	software="$software postgresql-server postgresql php${sysphp/./}-php-pgsql"
 fi
 if [ "$fail2ban" = 'yes' ]; then
 	software="$software fail2ban fail2ban-firewalld"
