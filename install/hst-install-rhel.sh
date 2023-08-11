@@ -44,7 +44,8 @@ software="acl awstats bash-completion bc bind ca-certificates crudini curl expec
   idn2 ImageMagick ipset jq mc nodejs openssl openssh-server
   php php-apcu php-cgi php-cli php-common php-curl php-gd php-fpm php-imagick php-imap php-intl 
   php-ldap php-mbstring php-mysqlnd php-opcache php-pgsql php-pspell php-readline php-xml php-zip 
-  postgresql pwgen quota rrdtool rsyslog sudo sysstat unzip util-linux vim wget whois zip zstd"
+  postgresql pwgen quota rrdtool rsyslog sudo sysstat unzip util-linux vim wget whois zip zstd
+  ansible ansible-collection-ansible-posix ansible-collection-community-general"
 
 installer_dependencies="ca-certificates curl glibc-langpack-en gnupg2 openssl rng-tools wget yum-utils"
 
@@ -1961,7 +1962,7 @@ cat > /etc/cron.daily/hestia-autoupdate.sh <<EOF
 #!/bin/bash
 . /etc/profile.d/hestia.sh
 cd $HESTIA
-git pull 
+git pull
 systemctl restart hestia hestia-php hestia-nginx
 EOF
 
