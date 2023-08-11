@@ -908,9 +908,8 @@ echo
 #		dpkg -i $withdebs/hestia-nginx_*.deb > /dev/null 2>&1
 #	fi
 #fi
-cp -f $HESTIA_INSTALL_DIR/hestia/hestia.service /etc/systemd/system
-cp -f $HESTIA_INSTALL_DIR/nginx/hestia-nginx.service /etc/systemd/system
-cp -f $HESTIA_INSTALL_DIR/php/hestia-php.service /etc/systemd/system
+
+cp -f $HESTIA_INSTALL_DIR/hestia/*.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable hestia hestia-php hestia-nginx
 systemctl start hestia hestia-php hestia-nginx
