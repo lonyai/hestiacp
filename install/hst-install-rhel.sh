@@ -75,6 +75,7 @@ help() {
   -l, --lang              Default language                default: en
   -y, --interactive       Interactive install   [yes|no]  default: yes
   -s, --hostname          Set hostname
+  -u, --username          Set admin user
   -e, --email             Set admin email
   -p, --password          Set admin password
   -D, --with-debs         Path to Hestia debs (unused)
