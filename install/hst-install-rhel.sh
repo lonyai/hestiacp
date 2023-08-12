@@ -69,6 +69,7 @@ help() {
   -i, --iptables          Install Iptables      [yes|no]  default: no (unused)
   -b, --fail2ban          Install Fail2ban      [yes|no]  default: yes
   -q, --quota             Filesystem Quota      [yes|no]  default: no
+  -W, --webterminal       Web Terminal          [yes|no]  default: no
   -d, --api               Activate API          [yes|no]  default: yes
   -r, --port              Change Backend Port             default: 8083
   -l, --lang              Default language                default: en
@@ -225,6 +226,7 @@ for arg; do
 		--fail2ban) args="${args}-b " ;;
 		--multiphp) args="${args}-o " ;;
 		--quota) args="${args}-q " ;;
+		--webterminal) args="${args}-W " ;;
 		--port) args="${args}-r " ;;
 		--lang) args="${args}-l " ;;
 		--interactive) args="${args}-y " ;;
@@ -264,6 +266,7 @@ while getopts "a:w:v:j:k:m:M:g:d:x:z:Z:c:t:i:b:r:o:q:l:y:s:e:p:D:V:fh" Option; d
 		i) iptables=$OPTARG ;;    # Iptables
 		b) fail2ban=$OPTARG ;;    # Fail2ban
 		q) quota=$OPTARG ;;       # FS Quota
+		W) webterminal=$OPTARG ;; # Web Terminal
 		r) port=$OPTARG ;;        # Backend Port
 		l) lang=$OPTARG ;;        # Language
 		d) api=$OPTARG ;;         # Activate API
@@ -306,6 +309,7 @@ fi
 set_default_value 'iptables' 'no'
 set_default_value 'fail2ban' 'yes'
 set_default_value 'quota' 'no'
+set_default_value 'webterminal' 'no'
 set_default_value 'interactive' 'yes'
 set_default_value 'api' 'yes'
 set_default_port '8083'
@@ -522,6 +526,10 @@ if [ "$vsftpd" = 'yes' ]; then
 fi
 if [ "$proftpd" = 'yes' ]; then
 	echo '   - ProFTPD FTP Server'
+fi
+
+if [ "$webterminal" = 'yes' ]; then
+        echo '   - Web terminal'
 fi
 
 # Firewall stack
@@ -1085,6 +1093,8 @@ if [ "$quota" = 'yes' ]; then
 else
 	write_config_value "DISK_QUOTA" "no"
 fi
+
+write_config_value "WEB_TERMINAL_PORT" "8085"
 
 # Backups
 write_config_value "BACKUP_SYSTEM" "local"
@@ -1836,6 +1846,28 @@ fi
 
 echo "[ * ] Configuring File Manager..."
 $HESTIA/bin/v-add-sys-filemanager quiet
+
+#----------------------------------------------------------#
+#              Configure Web terminal                      #
+#----------------------------------------------------------#
+
+# Web terminal
+if [ "$webterminal" = 'yes' ]; then
+	mkdir $HESTIA/web-terminal
+	cp src/deb/web-terminal/{package.json,package-lock.json,server.js} $HESTIA/web-terminal
+	yum -y group install "Development Tools"
+	pushd $HESTIA/web-terminal
+		npm install | $LOG
+	popd
+	yum -y group remove "Development Tools"
+	h_semanage port -a -t http_port_t -p tcp 8085
+        write_config_value "WEB_TERMINAL" "true"
+        systemctl daemon-reload > /dev/null 2>&1
+        systemctl enable hestia-web-terminal > /dev/null 2>&1
+        systemctl restart hestia-web-terminal > /dev/null 2>&1
+else
+        write_config_value "WEB_TERMINAL" "false"
+fi
 
 #----------------------------------------------------------#
 #                  Configure dependencies                  #
