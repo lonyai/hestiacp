@@ -44,7 +44,7 @@ software="acl awstats bash-completion bc bind ca-certificates crudini curl expec
   idn2 ImageMagick ipset jq mc openssl openssh-server
   php php-apcu php-cgi php-cli php-common php-curl php-gd php-fpm php-imagick php-imap php-intl 
   php-ldap php-mbstring php-mysqlnd php-opcache php-pgsql php-pspell php-readline php-xml php-zip 
-  postgresql pwgen quota rrdtool rsyslog sudo sysstat unzip util-linux vim wget whois zip zstd
+  postgresql quota rrdtool rsyslog sudo sysstat unzip util-linux vim wget whois zip zstd
   ansible ansible-collection-ansible-posix ansible-collection-community-general"
 
 installer_dependencies="ca-certificates curl glibc-langpack-en gnupg2 openssl rng-tools wget yum-utils"
@@ -1548,11 +1548,11 @@ if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
 	#chown root:www-data /usr/share/phpmyadmin/tmp
 
 	# Generate blow fish
-	blowfish=$(pwgen -s 32 1)
+	#blowfish=$(gen_pass "A-Za-z0-9" 32)
 	PMADB=phpmyadmin
 	PMAUSER=phpmyadmin
 	PMAPASS=$(gen_pass)
-	sed -i "s|\$cfg['blowfish_secret'].*|\$cfg['blowfish_secret'] = '$blowfish';|" /etc/phpMyAdmin/config.inc.php
+	sed -i "s|\$cfg['blowfish_secret'].*|\$cfg['blowfish_secret'] = '$(gen_pass "A-Za-z0-9" 32)';|" /etc/phpMyAdmin/config.inc.php
 	sed -i "s|\$cfg['Servers'][$i]['controluser'].*|\$cfg['Servers'][$i]['controluser'] = '$PMAUSER';|" /etc/phpMyAdmin/config.inc.php
 	sed -i "s|\$cfg['Servers'][$i]['controlpass'].*|\$cfg['Servers'][$i]['controlpass'] = '$PMAPASS';|" /etc/phpMyAdmin/config.inc.php
 	sed -i "s|\$cfg['Servers'][\$i]['pmadb']|\$cfg['Servers'][\$i]['pmadb'] = '$PMADB';|" /etc/phpMyAdmin/config.inc.php
