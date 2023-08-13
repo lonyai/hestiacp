@@ -41,7 +41,7 @@ mariadb_v="11.0"
 
 # Defining software pack for all distros
 software="acl awstats bash-completion bc bind ca-certificates crudini curl expect flex ftp gnupg2 
-  idn2 ImageMagick ipset jq mc nodejs openssl openssh-server
+  idn2 ImageMagick ipset jq mc openssl openssh-server
   php php-apcu php-cgi php-cli php-common php-curl php-gd php-fpm php-imagick php-imap php-intl 
   php-ldap php-mbstring php-mysqlnd php-opcache php-pgsql php-pspell php-readline php-xml php-zip 
   postgresql pwgen quota rrdtool rsyslog sudo sysstat unzip util-linux vim wget whois zip zstd
@@ -719,7 +719,9 @@ yum -y install https://rpms.remirepo.net/enterprise/remi-release-$release.rpm > 
 check_result $? "Package installation failed, check log file for more details."
 
 # Installing NodeJS repos
-yum module enable nodejs:18/common
+if [ "$webterminal" = 'yes' ]; then
+	yum module enable nodejs:18/common
+fi
 
 # Installing MariaDB repo
 if [ "$mysql" == 'yes' ]; then
@@ -906,6 +908,9 @@ if [ "$mysql8" = 'yes' ]; then
 fi
 if [ "$postgresql" = 'yes' ]; then
 	software="$software postgresql-server postgresql php${sysphp/./}-php-pgsql"
+fi
+if [ "$webterminal" = 'yes' ]; then
+	software="$software nodejs"
 fi
 if [ "$fail2ban" = 'yes' ]; then
 	software="$software fail2ban fail2ban-firewalld"
